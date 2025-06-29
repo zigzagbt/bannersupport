@@ -29,7 +29,7 @@ const colorToMood: Record<string, string[]> = {
     "빈티지한", "내추럴한", "포근한", "따뜻한", "차분한", "안정적인", "고요한", "자연스러운"
   ],
   black: [
-    "시크한", "모던한", "고급스러운", "세련된", "강렬한", "중후한", "감각적인", "차분한"
+    "시크한", "모던한", "고급스러운", "세련된", "강렬한", "당당한", "감각적인", "차분한"
   ],
   gray: [
     "깔끔한", "미니멀한", "세련된", "모던한", "중성적인", "차분한", "심플한", "고요한"
@@ -219,6 +219,33 @@ const colorToSeason: Record<string, string[]> = {
   red: ['여름'],
 };
 
+// 1. 부사 변환 사전 추가
+const adjToAdv: Record<string, string> = {
+  "고급스러운": "고급스럽게",
+  "세련된": "세련되게",
+  "시크한": "시크하게",
+  "사랑스러운": "사랑스럽게",
+  "따뜻한": "따뜻하게",
+  "밝은": "밝게",
+  "차분한": "차분하게",
+  "감각적인": "감각적으로",
+  "로맨틱한": "로맨틱하게",
+  "빈티지한": "빈티지하게",
+  "내추럴한": "내추럴하게",
+  "모던한": "모던하게",
+  "심플한": "심플하게",
+  "청량한": "청량하게",
+  "경쾌한": "경쾌하게",
+  "활기찬": "활기차게",
+  "우아한": "우아하게",
+  "트렌디한": "트렌디하게",
+  "포근한": "포근하게",
+  "상쾌한": "상쾌하게",
+  "맑은": "맑게",
+  "귀여운": "귀엽게",
+  // ... 필요시 추가
+};
+
 interface BannerCopyGeneratorProps {
   onHome: () => void;
   onBack?: () => void;
@@ -240,7 +267,9 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
     season: string[];
     situation: string[];
     colorTone: string[];
-  }>({ style: [], fit: [], mood: [], season: [], situation: [], colorTone: [] });
+    noun: string[];
+  }>({ style: [], fit: [], mood: [], season: [], situation: [], colorTone: [], noun: [] });
+  const [palette, setPalette] = React.useState<string[]>([]);
 
   // 드래그&드롭 핸들러
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
@@ -268,18 +297,37 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
     setColorMoods([]);
   };
 
-  // 이미지에서 대표색상 4개 추출 후 각각 2~3개 무드 매핑 (중복 없이 전체 pool 생성)
+  // --- 파일 상단에 filterSimilarColors 함수 추가 (ColorGuide.tsx 참고) ---
+  function colorDistance(a: [number, number, number], b: [number, number, number]) {
+    return Math.sqrt(
+      Math.pow(a[0] - b[0], 2) +
+      Math.pow(a[1] - b[1], 2) +
+      Math.pow(a[2] - b[2], 2)
+    );
+  }
+  function filterSimilarColors(palette: [number, number, number][], threshold = 40) {
+    const result: [number, number, number][] = [];
+    palette.forEach(color => {
+      if (!result.some(existing => colorDistance(existing, color) < threshold)) {
+        result.push(color);
+      }
+    });
+    return result;
+  }
+
+  // 이미지에서 대표색상 12개 추출 후 유사색 제거(6개만 사용), 각각 2~3개 무드 매핑 (중복 없이 전체 pool 생성)
   const handleImageLoad = async () => {
     if (!imgRef.current) return;
     const colorThief = new ColorThief();
     try {
-      const palette: [number, number, number][] = await colorThief.getPalette(imgRef.current, 5);
+      const palette: [number, number, number][] = await colorThief.getPalette(imgRef.current, 12); // 12개 추출
+      const filteredPalette = filterSimilarColors(palette, 40).slice(0, 6); // 유사색 제거 후 6개만 사용
       let moodPool: { color: string, mood: string }[] = [];
       let autoMoods: string[] = [];
       let autoStyles: string[] = [];
       let autoFits: string[] = [];
       let autoSeasons: string[] = [];
-      palette.slice(0, 4).forEach(rgb => {
+      filteredPalette.forEach(rgb => {
         const color = rgbToSimpleColor(rgb);
         const moods = colorToMood[color] || ["감각적인"];
         // 한 색상에서 2~3개 무드 랜덤 추출 (중복 방지)
@@ -334,7 +382,15 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
   }
   // 부사로 변환 (예: '따뜻한' -> '따뜻하게')
   function toAdverb(adj: string) {
-    return toRoot(adj) + '하게';
+    if (adjToAdv[adj]) return adjToAdv[adj];
+    // '한'으로 끝나는 경우
+    if (adj.endsWith('한')) return adj.slice(0, -1) + '하게';
+    // '운'으로 끝나는 경우
+    if (adj.endsWith('운')) return adj.slice(0, -1) + '게';
+    // '된'으로 끝나는 경우
+    if (adj.endsWith('된')) return adj.slice(0, -1) + '게';
+    // 기타: 그냥 '하게' 붙이기
+    return adj + '하게';
   }
   // 명사로 변환 (예: '따뜻한' -> '따뜻함')
   function toNoun(adj: string) {
@@ -412,6 +468,55 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
     });
   }
 
+  // --- 템플릿 분리 ---
+  const mypageTemplates = [
+    // 마이페이지용 한 문장(26자 이내) 템플릿
+    '{mainMood_adverb} 완성하는 {context} 룩',
+    '{mainMood}인 듯 시작되는 {context} 룩',
+    '{mainMood} 무드 그대로, {subMood}인 듯',
+    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
+    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
+    '{mainMood} 그리고 {subMood}',
+    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
+    '{context}에 어울리는 {mainMood} 컬러감',
+    '일상에 스며드는 {subMood} {noun}',
+    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
+    '오직 {context}에서만, {mainMood} {noun}',
+    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
+    '매일 입고 싶은 {mainMood} {noun}',
+    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
+    // 추가 예시
+    '{mainMood} 감성 가득, {subMood}로 완성',
+    '{mainMood}로 시작해 {subMood}로 마무리',
+    '{mainMood}와 {subMood}, 오늘의 무드',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+  ];
+  const ribbonTemplates = [
+    // 띠배너용 한 문장(18자 이내) 템플릿
+    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
+    '{mainMood_root}에 {subMood_root} 감성을 더한',
+    '{mainMood_adverb} 완성하는 {context} 룩',
+    '{mainMood}인 듯 시작되는 {context} 룩',
+    '{mainMood} 무드 그대로, {subMood}인 듯',
+    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
+    '살짝 {mainMood_adverb}라도, {subMood} 감성도 OK',
+    '{mainMood}인 듯 감각적인, {subMood_noun}과 감각미',
+    '시작은 {mainMood_adverb}, 마무리는 {subMood_adverb}',
+    '{mainMood} 그리고 {subMood}',
+    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
+    '{context}에 어울리는 {mainMood} 컬러감',
+    '일상에 스며드는 {subMood} {noun}',
+    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
+    '오직 {context}에서만, {mainMood} {noun}',
+    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
+    '매일 입고 싶은 {mainMood} {noun}',
+    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
+  ];
+
   // 대표색상 무드 + 태그 조합으로 문구 생성 (타입별 글자수 제한 필터 추가)
   const generate = async (moods?: {color: string, mood: string}[], isAuto = false) => {
     const targetMoods = moods || colorMoods;
@@ -448,8 +553,10 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
         }
         if (usedCombos.has(comboKey)) continue;
         usedCombos.add(comboKey);
-        // 템플릿 랜덤 선택
-        let template = smartTemplates[Math.floor(Math.random() * smartTemplates.length)];
+        // --- 템플릿 랜덤 선택 (마이페이지는 26자, 띠배너는 18자) ---
+        let template = copyType === 'mypage'
+          ? mypageTemplates[Math.floor(Math.random() * mypageTemplates.length)]
+          : ribbonTemplates[Math.floor(Math.random() * ribbonTemplates.length)];
         // --- 단어 형태 변환 후 템플릿 치환 ---
         let corePhrase = template
           .replace('{mainMood_adverb}', toAdverb(mainMood))
@@ -463,12 +570,13 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
           .replace('{context}', context)
           .replace('{noun}', noun)
           .replace('{noun2}', noun2);
-        // 핵심 문구의 글자수만으로 필터링
-        const maxLen = copyType === 'mypage' ? 26 : 18;
-        const plain = corePhrase.replace(/\n/g, '');
-        if (plain.length <= maxLen && plain.length >= 10) {
-          if (!phrases.includes(corePhrase)) phrases.push(corePhrase);
+        // --- 길이 체크 ---
+        if (copyType === 'mypage') {
+          if (corePhrase.replace(/\s/g, '').length > 26) continue;
+        } else {
+          if (corePhrase.replace(/\s/g, '').length > 18 || corePhrase.replace(/\s/g, '').length < 10) continue;
         }
+        if (!phrases.includes(corePhrase)) phrases.push(corePhrase);
       }
       setResult(phrases);
       setLoading(false);
@@ -484,12 +592,12 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
 
   // 태그 전체 초기화 함수
   const resetTags = () => {
-    setSelectedTags({ style: [], fit: [], mood: [], season: [], situation: [], colorTone: [] });
+    setSelectedTags({ style: [], fit: [], mood: [], season: [], situation: [], colorTone: [], noun: [] });
   };
 
   return (
-    <div className="card" style={{ maxWidth: 520, margin: "32px auto", background: '#fff', boxShadow: '0 2px 16px #e0e7ef', borderRadius: 18, padding: 32 }}>
-      <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
+    <div className="card" style={{ maxWidth: 400, margin: "32px auto", background: '#fff', boxShadow: '0 2px 12px #e0e7ef', borderRadius: 16, padding: 20 }}>
+      <div className="flex" style={{ alignItems: 'center', marginBottom: '18px', gap: 12 }}>
         {onBack && (
           <button className="btn btn-secondary" onClick={onBack}>
             ← 뒤로가기
@@ -498,10 +606,11 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
         <button className="btn-home" onClick={onHome}>
           🏠 홈
         </button>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 0, color: '#1e293b', textAlign: 'center', marginLeft: 20 }}>
-          🖼️ 배너 이미지 문구 생성기 <span style={{ fontSize: 15, color: '#3b82f6', fontWeight: 500 }}>(무료버전)</span>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#1e293b', textAlign: 'center', marginLeft: 12 }}>
+          🖼️ 배너 이미지 문구 생성기
         </h1>
       </div>
+      {/* 업로드 영역: 타이틀 바로 아래 */}
       <div
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
@@ -509,11 +618,11 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
         onDrop={handleDrop}
         style={{
           border: dragActive ? '2px solid #3b82f6' : '2px dashed #cbd5e1',
-          borderRadius: 14,
+          borderRadius: 12,
           background: dragActive ? '#e0e7ef' : '#f8fafc',
-          padding: 32,
+          padding: 18,
           textAlign: 'center',
-          marginBottom: 18,
+          marginBottom: 12,
           cursor: 'pointer',
           transition: 'background 0.2s, border 0.2s',
         }}
@@ -526,127 +635,118 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
           style={{ display: 'none' }}
           onChange={handleUpload}
         />
-        <div style={{ color: '#64748b', fontSize: 16, marginBottom: 8 }}>
+        <div style={{ color: '#64748b', fontSize: 15, marginBottom: 6 }}>
           이미지를 <b>드래그</b>하거나 <b>클릭</b>해서 업로드하세요
         </div>
-        <div style={{ fontSize: 32, marginBottom: 4 }}>⬆️</div>
-        <div style={{ color: '#94a3b8', fontSize: 13 }}>
+        <div style={{ fontSize: 24, marginBottom: 2 }}>⬆️</div>
+        <div style={{ color: '#94a3b8', fontSize: 12 }}>
           (JPG, PNG 등 지원, 최대 1장)
         </div>
       </div>
       {previewUrl && (
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+        <div style={{ textAlign: 'center', marginBottom: 10 }}>
           <img
             ref={imgRef}
             src={previewUrl}
             alt="preview"
             crossOrigin="anonymous"
             onLoad={handleImageLoad}
-            style={{ borderRadius: 12, boxShadow: "0 2px 8px #e0e7ef", maxWidth: "100%", maxHeight: 220, margin: '0 auto', display: 'block' }}
+            style={{ borderRadius: 10, boxShadow: "0 2px 8px #e0e7ef", maxWidth: "100%", maxHeight: 180, margin: '0 auto', display: 'block' }}
           />
         </div>
       )}
+      {/* 대표 색상/무드 한 번만 표시 */}
       {colorMoods.length > 0 && (
-        <div style={{ marginBottom: 12, color: '#64748b', fontSize: 15, textAlign: 'center' }}>
-          {colorMoods.map((cm, i) => (
-            <div key={i}>
-              대표 색상 {i+1}: <b>{cm.color}</b> / 추출 무드: <b>{cm.mood}</b>
-            </div>
-          ))}
+        <div style={{ marginBottom: 10, textAlign: 'center' }}>
+          <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
+            추출 무드: {Array.from(new Set(colorMoods.map(cm => cm.mood))).join(', ')}
+          </div>
         </div>
       )}
-      <div style={{ marginBottom: 18, position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontWeight: 600, color: '#1e293b' }}>배너 태그 선택</div>
-          <button onClick={resetTags} style={{ background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 500, cursor: 'pointer', fontSize: 14 }}>초기화</button>
-        </div>
-        {/* 주요 무드(스타일/핏) */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, minWidth: 180, flex: 1 }}>
-            <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>주요 무드(스타일)</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {styles.map(t => (
-                <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                  <input type="checkbox" checked={selectedTags.style.includes(t)} onChange={() => handleTagChange('style', t)} /> {t}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, minWidth: 180, flex: 1 }}>
-            <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>주요 무드(핏)</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {fits.map(t => (
-                <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                  <input type="checkbox" checked={selectedTags.fit.includes(t)} onChange={() => handleTagChange('fit', t)} /> {t}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* 보조 분위기 */}
-        <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, marginBottom: 14 }}>
-          <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>보조 분위기</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {moods.map(t => (
-              <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                <input type="checkbox" checked={selectedTags.mood.includes(t)} onChange={() => handleTagChange('mood', t)} /> {t}
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 24, marginBottom: 10, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ minWidth: 160, flex: 1 }}>
+          <div style={{ fontWeight: 700, color: '#2563eb', marginBottom: 4, fontSize: 15 }}>주요 무드(스타일)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {styles.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+                <input type="checkbox" checked={selectedTags.style.includes(t)} onChange={() => handleTagChange('style', t)} /> {t}
               </label>
             ))}
           </div>
         </div>
-        {/* 착용 맥락(계절/상황) */}
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, minWidth: 180, flex: 1 }}>
-            <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>계절</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {seasons.map(t => (
-                <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                  <input type="checkbox" checked={selectedTags.season.includes(t)} onChange={() => handleTagChange('season', t)} /> {t}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, minWidth: 180, flex: 1 }}>
-            <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>상황</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {situations.map(t => (
-                <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                  <input type="checkbox" checked={selectedTags.situation.includes(t)} onChange={() => handleTagChange('situation', t)} /> {t}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14, minWidth: 180, flex: 1 }}>
-          <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 6 }}>핵심 명사</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {nouns.map(t => (
-              <label key={t} style={{ marginRight: 8, fontWeight: 500, color: '#334155', minWidth: 70 }}>
-                <input type="checkbox" checked={false} onChange={() => {}} /> {t}
+        <div style={{ minWidth: 120, flex: 1 }}>
+          <div style={{ fontWeight: 700, color: '#2563eb', marginBottom: 4, fontSize: 15 }}>주요 무드(핏)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {fits.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+                <input type="checkbox" checked={selectedTags.fit.includes(t)} onChange={() => handleTagChange('fit', t)} /> {t}
               </label>
             ))}
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 16, alignItems: "center", margin: "16px 0", justifyContent: 'center' }}>
-        <label style={{ fontWeight: 500, color: '#1e293b' }}>
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, color: '#3b82f6', marginBottom: 4, fontSize: 15 }}>보조 무드(분위기)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {moods.map(t => (
+            <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+              <input type="checkbox" checked={selectedTags.mood.includes(t)} onChange={() => handleTagChange('mood', t)} /> {t}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ minWidth: 120, flex: 1 }}>
+          <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>계절</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {seasons.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+                <input type="checkbox" checked={selectedTags.season.includes(t)} onChange={() => handleTagChange('season', t)} /> {t}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div style={{ minWidth: 120, flex: 1 }}>
+          <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>상황</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {situations.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+                <input type="checkbox" checked={selectedTags.situation.includes(t)} onChange={() => handleTagChange('situation', t)} /> {t}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ minWidth: 120, marginBottom: 12 }}>
+        <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>핵심 명사</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {nouns.map(t => (
+            <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+              <input type="checkbox" checked={selectedTags.noun.includes(t)} onChange={() => handleTagChange('noun', t)} /> {t}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 8 }}>
+        <label style={{ fontWeight: 500, color: '#1e293b', fontSize: 14 }}>
           <input
             type="radio"
             checked={copyType === "mypage"}
             onChange={() => setCopyType("mypage")}
-            style={{ marginRight: 6 }}
+            style={{ marginRight: 4 }}
           />
-          마이페이지 배너 (13자×2줄)
+          마이페이지 (26자)
         </label>
-        <label style={{ fontWeight: 500, color: '#1e293b' }}>
+        <label style={{ fontWeight: 500, color: '#1e293b', fontSize: 14 }}>
           <input
             type="radio"
             checked={copyType === "ribbon"}
             onChange={() => setCopyType("ribbon")}
-            style={{ marginRight: 6 }}
+            style={{ marginRight: 4 }}
           />
-          띠배너 (18자 1줄)
+          띠배너 (18자)
         </label>
+        <button onClick={resetTags} style={{ background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 500, cursor: 'pointer', fontSize: 13, marginLeft: 8 }}>초기화</button>
       </div>
       <button
         onClick={() => generate()}
@@ -657,27 +757,27 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
           color: "white",
           fontWeight: 600,
           borderRadius: 8,
-          padding: "12px 32px",
-          fontSize: 16,
+          padding: "10px 0",
+          fontSize: 15,
           border: "none",
           cursor: loading || !image || !colorMoods.length ? "not-allowed" : "pointer",
-          marginBottom: 18,
+          marginBottom: 10,
           width: '100%'
         }}
       >
         {loading ? "문구 생성 중..." : "새로운 문구 추천받기"}
       </button>
       {loading && (
-        <div style={{ textAlign: "center", margin: "16px 0", color: "#64748b" }}>
+        <div style={{ textAlign: "center", margin: "10px 0", color: "#64748b", fontSize: 13 }}>
           문구 생성 중입니다... 잠시만 기다려주세요.
         </div>
       )}
       {result.length > 0 && (
-        <div style={{ background: "#f8fafc", borderRadius: 10, padding: 18, marginTop: 10 }}>
+        <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, marginTop: 6, maxHeight: 220, overflowY: 'auto' }}>
           {result.map((line, i) => (
-            <div key={i} className="card" style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 6px #e0e7ef', marginBottom: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ whiteSpace: "pre-line", fontSize: 15, color: '#1e293b', fontWeight: 500 }}>{line}</div>
-              <button className="btn btn-secondary" style={{ fontSize: '0.95rem', padding: '6px 14px', borderRadius: 7, background: '#e0e7ef', color: '#2563eb', fontWeight: 600, border: 'none', cursor: 'pointer' }} onClick={() => copyToClipboard(line)}>
+            <div key={i} className="card" style={{ background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #e0e7ef', marginBottom: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ whiteSpace: "pre-line", fontSize: 14, color: '#1e293b', fontWeight: 500 }}>{line}</div>
+              <button className="btn btn-secondary" style={{ fontSize: '0.9rem', padding: '5px 10px', borderRadius: 6, background: '#e0e7ef', color: '#2563eb', fontWeight: 600, border: 'none', cursor: 'pointer' }} onClick={() => copyToClipboard(line)}>
                 복사
               </button>
             </div>
