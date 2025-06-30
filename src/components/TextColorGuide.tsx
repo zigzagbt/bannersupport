@@ -178,47 +178,6 @@ const TextColorGuide: React.FC<TextColorGuideProps> = ({ onBack, onHome, initial
           </h2>
         </div>
 
-        {/* 팔레트에서 배경색 선택 */}
-        {palette && palette.length > 0 && setBackgroundColor && (
-          <div style={{ margin: '0 0 24px 0', textAlign: 'center' }}>
-            <span style={{ fontWeight: 700, color: '#334155', fontSize: '1rem' }}>추천 배경 컬러 팔레트</span><br/>
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', justifyContent: 'center', alignItems: 'center', margin: '12px 0' }}>
-              {palette.map((color, idx) => (
-                <div
-                  key={color}
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    background: color,
-                    borderRadius: '8px',
-                    border: backgroundColor === color ? '3px solid #3b82f6' : '2px solid #e5e7eb',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onClick={() => setBackgroundColor(color)}
-                  title={color}
-                >
-                  {backgroundColor === color && (
-                    <span style={{
-                      display: 'inline-block',
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '50%',
-                      background: '#fff',
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 1px 4px #e0e7ef',
-                    }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="mb-20">
           <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>
             실시간 컬러 테스트
@@ -303,43 +262,101 @@ const TextColorGuide: React.FC<TextColorGuideProps> = ({ onBack, onHome, initial
             </div>
           </div>
 
-          <div className="card mt-20" style={{ 
-            backgroundColor: backgroundColor, 
-            color: textColor,
-            padding: '30px',
-            textAlign: 'center',
-            fontSize: '1.2rem',
-            fontWeight: 'bold',
-            position: 'relative'
-          }}>
-            이렇게 보여집니다! 텍스트가 잘 보이나요?
-            {recommendation && (
-              <div style={getRecommendationStyle()}>
-                {recommendedColor && <span style={getCircleStyle()}></span>}
-                추천: {recommendation}
+          <h4 style={{ fontSize: '1.1rem', marginBottom: '15px', marginTop: '30px', color: '#1e293b' }}>텍스트 컬러 미리보기</h4>
+          {(() => {
+            const blackBox = (
+              <div style={{
+                backgroundColor: backgroundColor,
+                color: '#000000',
+                padding: '30px 20px',
+                textAlign: 'center',
+                borderRadius: '8px',
+                border: recommendedColor === 'black' ? '4px solid #22c55e' : '1px solid #e2e8f0',
+                position: 'relative',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '150px',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '10px', right: '10px',
+                  background: 'rgba(255, 255, 255, 0.8)', color: '#333',
+                  padding: '3px 8px', borderRadius: '6px',
+                  fontSize: '0.85rem', fontWeight: '600'
+                }}>
+                  대비 {blackContrast.toFixed(2)}
+                </div>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: '0' }}>
+                  이렇게 보여집니다
+                </p>
+                {recommendedColor === 'black' && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '10px', left: '10px',
+                    background: '#22c55e', color: '#fff',
+                    padding: '3px 8px', borderRadius: '6px',
+                    fontSize: '0.85rem', fontWeight: '600'
+                  }}>
+                    추천컬러
+                  </div>
+                )}
               </div>
-            )}
-            <div style={{
-              position: 'absolute',
-              right: 24,
-              bottom: 24,
-              background: '#e0edff',
-              color: '#2563eb',
-              borderRadius: '10px',
-              padding: '8px 18px',
-              fontWeight: 700,
-              fontSize: '1.08rem',
-              boxShadow: '0 1px 4px #e0e7ef',
-              letterSpacing: '0.5px'
-            }}>
-              Contrast Ratio: {contrast(hexToRgb(backgroundColor), hexToRgb(textColor)).toFixed(2)}
-            </div>
-          </div>
-        </div>
+            );
 
-        <div className="warning">
-          <strong>⚠️ 수치 계산이 어렵거나 비교 예시가 필요하다면?</strong><br/>
-          → <button className="btn">텍스트 대비 가이드 보기</button>
+            const whiteBox = (
+              <div style={{
+                backgroundColor: backgroundColor,
+                color: '#FFFFFF',
+                padding: '30px 20px',
+                textAlign: 'center',
+                borderRadius: '8px',
+                border: recommendedColor === 'white' ? '4px solid #22c55e' : '1px solid #e2e8f0',
+                position: 'relative',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '150px',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '10px', right: '10px',
+                  background: 'rgba(0, 0, 0, 0.6)', color: '#fff',
+                  padding: '3px 8px', borderRadius: '6px',
+                  fontSize: '0.85rem', fontWeight: '600'
+                }}>
+                  대비 {whiteContrast.toFixed(2)}
+                </div>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: '0' }}>
+                  이렇게 보여집니다
+                </p>
+                {recommendedColor === 'white' && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '10px', left: '10px',
+                    background: '#22c55e', color: '#fff',
+                    padding: '3px 8px', borderRadius: '6px',
+                    fontSize: '0.85rem', fontWeight: '600'
+                  }}>
+                    추천컬러
+                  </div>
+                )}
+              </div>
+            );
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+                {blackBox}
+                {whiteBox}
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>
