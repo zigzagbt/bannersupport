@@ -14,7 +14,6 @@ export type MenuItem =
   | 'main'
   | 'color'
   | 'text-color'
-  | 'phrase'
   | 'png'
   | 'template'
   | 'full-guide'
@@ -51,8 +50,6 @@ function App() {
           palette={palette}
           setBackgroundColor={setSelectedBackgroundColor}
         />;
-      case 'phrase':
-        return <PhraseGuide onBack={goHome} onHome={goHome} />;
       case 'png':
         return <PngGuide onBack={goHome} onHome={goHome} />;
       case 'template':

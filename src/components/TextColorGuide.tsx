@@ -167,9 +167,9 @@ const TextColorGuide: React.FC<TextColorGuideProps> = ({ onBack, onHome, initial
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
+          {/* <button className="btn btn-secondary" onClick={onBack}>
             ← 뒤로가기
-          </button>
+          </button> */}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>

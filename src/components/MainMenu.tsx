@@ -20,10 +20,10 @@ const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
       icon: '⚫⚪'
     },
     {
-      id: 'phrase' as MenuItem,
-      title: '잘 먹히는 문구 추천받기',
-      description: '효과적인 배너 문구를 카테고리별로 추천해드려요',
-      icon: '📣'
+      id: 'banner-image-phrase' as MenuItem,
+      title: '배너 이미지 문구 추천',
+      description: '배너 이미지에 어울리는 감각적인 문구를 추천해드려요',
+      icon: '🖼️'
     },
     {
       id: 'png' as MenuItem,
@@ -33,21 +33,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
     },
     {
       id: 'template' as MenuItem,
-      title: '배너 PSD 템플릿 다운로드',
+      title: '배너 PSD 템플릿 다운로드 (작업중)',
       description: 'ZIGZAG 배너 제작용 PSD 템플릿을 다운로드하세요',
       icon: '🎁'
     },
     {
       id: 'full-guide' as MenuItem,
-      title: '전체 가이드 한눈에 보기',
+      title: '전체 가이드 한눈에 보기 (작업중)',
       description: '배너 제작에 필요한 모든 정보를 한 번에 확인하세요',
       icon: '📚'
-    },
-    {
-      id: 'banner-image-phrase' as MenuItem,
-      title: '배너 이미지 문구 추천',
-      description: '배너 이미지에 어울리는 감각적인 문구를 추천해드려요',
-      icon: '🖼️'
     }
   ];
 

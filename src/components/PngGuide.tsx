@@ -25,9 +25,9 @@ const PngGuide: React.FC<PngGuideProps> = ({ onBack, onHome }) => {
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
+          {/* <button className="btn btn-secondary" onClick={onBack}>
             ← 뒤로가기
-          </button>
+          </button> */}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>
@@ -41,10 +41,7 @@ const PngGuide: React.FC<PngGuideProps> = ({ onBack, onHome }) => {
             배경 없는 PNG 저장이 필요하신가요?
           </h3>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <img src="/images/example_banner.png" alt="배너 예시" style={{ maxWidth: '320px', width: '100%', borderRadius: '10px', boxShadow: '0 2px 8px #e0e7ef' }} />
-            <div style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '8px' }}>
-              (샘플 배너 이미지)
-            </div>
+            {/* 포토샵 예시 이미지 및 (샘플 배너 이미지) 텍스트 삭제 */}
           </div>
           <div className="grid">
             {steps.map((step) => (

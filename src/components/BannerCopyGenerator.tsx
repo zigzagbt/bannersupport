@@ -271,6 +271,55 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
   }>({ style: [], fit: [], mood: [], season: [], situation: [], colorTone: [], noun: [] });
   const [palette, setPalette] = React.useState<string[]>([]);
 
+  // --- 템플릿 분리 ---
+  const mypageTemplates = [
+    // 마이페이지용 한 문장(26자 이내) 템플릿
+    '{mainMood_adverb} 완성하는 {context} 룩',
+    '{mainMood}인 듯 시작되는 {context} 룩',
+    '{mainMood} 무드 그대로, {subMood}인 듯',
+    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
+    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
+    '{mainMood} 그리고 {subMood}',
+    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
+    '{context}에 어울리는 {mainMood} 컬러감',
+    '일상에 스며드는 {subMood} {noun}',
+    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
+    '오직 {context}에서만, {mainMood} {noun}',
+    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
+    '매일 입고 싶은 {mainMood} {noun}',
+    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
+    // 추가 예시
+    '{mainMood} 감성 가득, {subMood}로 완성',
+    '{mainMood}로 시작해 {subMood}로 마무리',
+    '{mainMood}와 {subMood}, 오늘의 무드',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+  ];
+  const ribbonTemplates = [
+    // 띠배너용 한 문장(18자 이내) 템플릿
+    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
+    '{mainMood_root}에 {subMood_root} 감성을 더한',
+    '{mainMood_adverb} 완성하는 {context} 룩',
+    '{mainMood}인 듯 시작되는 {context} 룩',
+    '{mainMood} 무드 그대로, {subMood}인 듯',
+    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
+    '살짝 {mainMood_adverb}라도, {subMood} 감성도 OK',
+    '{mainMood}인 듯 감각적인, {subMood_noun}과 감각미',
+    '시작은 {mainMood_adverb}, 마무리는 {subMood_adverb}',
+    '{mainMood} 그리고 {subMood}',
+    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
+    '{context}에 어울리는 {mainMood} 컬러감',
+    '일상에 스며드는 {subMood} {noun}',
+    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
+    '{mainMood} 한 스푼, {subMood} 두 스푼',
+    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
+    '오직 {context}에서만, {mainMood} {noun}',
+    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
+    '매일 입고 싶은 {mainMood} {noun}',
+    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
+  ];
+
   // 드래그&드롭 핸들러
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -295,6 +344,7 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
     setPreviewUrl(URL.createObjectURL(file));
     setResult([]);
     setColorMoods([]);
+    resetTags(); // 이미지 업로드 시 체크박스 초기화
   };
 
   // --- 파일 상단에 filterSimilarColors 함수 추가 (ColorGuide.tsx 참고) ---
@@ -441,81 +491,18 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
   // ~한 뒤 명사 후보
   const hanNounCandidates = ['하루', '무드', '결', '스푼'];
 
-  // ~한 → ~함 변환 (예외 처리)
-  function hanToHamSmart(phrase: string) {
-    // 1. ~한 + (명사|조사) 패턴은 변환하지 않음
-    // 2. 그 외에는 ~함으로 변환
-    // 조사 후보
-    const josa = ['로', '으로', '에', '와', '과', '랑', '으랑', '까지', '만큼', '처럼', '보다', '부터', '까지', '밖에', '조차', '마저', '마다', '께', '께서', '에서', '에게', '한테', '더러', '밖에', '조차', '마저', '마다', '께', '께서', '에서', '에게', '한테', '더러'];
-    // 명사 후보
-    const noun = ['하루', '무드', '결', '스푼', '분위기', '포인트', '감성', '시간', '컬러'];
-    // 정규식: ~한 + (명사|조사)
-    return phrase.replace(/([가-힣]+)한(\s*)([가-힣]+|[a-zA-Z]+)/g, (m, adj, space, next) => {
-      if (noun.includes(next) || josa.includes(next)) {
-        return adj + '한' + space + next;
+  // ~한로/한으로 → ~하게 또는 ~한 무드로 보정
+  function fixHanRo(phrase: string) {
+    return phrase.replace(/([가-힣]+)한(로|으로)/g, (m, adj, josa) => {
+      // 50% 확률로 부사형, 50% 확률로 명사+로
+      if (Math.random() < 0.5) {
+        return adj + '하게';
+      } else {
+        const noun = hanNounCandidates[Math.floor(Math.random() * hanNounCandidates.length)];
+        return adj + '한 ' + noun + josa;
       }
-      // 그 외에는 ~함
-      return adj + '함' + space + next;
-    }).replace(/([가-힣]+)한(?![\s가-힣a-zA-Z])/g, (m, adj) => adj + '함');
-  }
-
-  // (로/으로) 조사 앞 ~함 명사화
-  function fixHamBeforeJosa(phrase: string) {
-    // ~함(으)로, ~함로 등 패턴을 찾아 ~한 무드로 등으로 변경
-    return phrase.replace(/([가-힣]+)함(로|으로)/g, (m, adj, josa) => {
-      const noun = hanNounCandidates[Math.floor(Math.random() * hanNounCandidates.length)];
-      return adj + '한 ' + noun + josa;
     });
   }
-
-  // --- 템플릿 분리 ---
-  const mypageTemplates = [
-    // 마이페이지용 한 문장(26자 이내) 템플릿
-    '{mainMood_adverb} 완성하는 {context} 룩',
-    '{mainMood}인 듯 시작되는 {context} 룩',
-    '{mainMood} 무드 그대로, {subMood}인 듯',
-    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
-    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
-    '{mainMood} 그리고 {subMood}',
-    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
-    '{context}에 어울리는 {mainMood} 컬러감',
-    '일상에 스며드는 {subMood} {noun}',
-    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
-    '{mainMood} 한 스푼, {subMood} 두 스푼',
-    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
-    '오직 {context}에서만, {mainMood} {noun}',
-    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
-    '매일 입고 싶은 {mainMood} {noun}',
-    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
-    // 추가 예시
-    '{mainMood} 감성 가득, {subMood}로 완성',
-    '{mainMood}로 시작해 {subMood}로 마무리',
-    '{mainMood}와 {subMood}, 오늘의 무드',
-    '{mainMood} 한 스푼, {subMood} 두 스푼',
-  ];
-  const ribbonTemplates = [
-    // 띠배너용 한 문장(18자 이내) 템플릿
-    '{mainMood_adverb} 마무리, {subMood_noun} 가득',
-    '{mainMood_root}에 {subMood_root} 감성을 더한',
-    '{mainMood_adverb} 완성하는 {context} 룩',
-    '{mainMood}인 듯 시작되는 {context} 룩',
-    '{mainMood} 무드 그대로, {subMood}인 듯',
-    '{mainMood} 무드 한가득, 끝까지 {subMood_adverb}',
-    '살짝 {mainMood_adverb}라도, {subMood} 감성도 OK',
-    '{mainMood}인 듯 감각적인, {subMood_noun}과 감각미',
-    '시작은 {mainMood_adverb}, 마무리는 {subMood_adverb}',
-    '{mainMood} 그리고 {subMood}',
-    '{mainMood} {noun}과 {subMood} {noun2}의 만남',
-    '{context}에 어울리는 {mainMood} 컬러감',
-    '일상에 스며드는 {subMood} {noun}',
-    '때로는 {mainMood_adverb}, 때로는 {subMood_adverb}',
-    '{mainMood} 한 스푼, {subMood} 두 스푼',
-    '가장 {mainMood_adverb} 빛나는 순간, {context}을 위한 {noun}',
-    '오직 {context}에서만, {mainMood} {noun}',
-    '{mainMood}와 {subMood} 사이, 완벽한 {noun}',
-    '매일 입고 싶은 {mainMood} {noun}',
-    '오늘의 {context}룩, {mainMood} {noun}으로 완성',
-  ];
 
   // 대표색상 무드 + 태그 조합으로 문구 생성 (타입별 글자수 제한 필터 추가)
   const generate = async (moods?: {color: string, mood: string}[], isAuto = false) => {
@@ -570,6 +557,8 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
           .replace('{context}', context)
           .replace('{noun}', noun)
           .replace('{noun2}', noun2);
+        // --- 어색한 ~한로/한으로 보정 ---
+        corePhrase = fixHanRo(corePhrase);
         // --- 길이 체크 ---
         if (copyType === 'mypage') {
           if (corePhrase.replace(/\s/g, '').length > 26) continue;
@@ -596,19 +585,17 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
   };
 
   return (
-    <div className="card" style={{ maxWidth: 400, margin: "32px auto", background: '#fff', boxShadow: '0 2px 12px #e0e7ef', borderRadius: 16, padding: 20 }}>
-      <div className="flex" style={{ alignItems: 'center', marginBottom: '18px', gap: 12 }}>
-        {onBack && (
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← 뒤로가기
-          </button>
-        )}
+    <div className="card" style={{ maxWidth: 800, margin: "32px auto", background: '#fff', boxShadow: '0 2px 12px #e0e7ef', borderRadius: 16, padding: 20 }}>
+      <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
+        {/* <button className="btn btn-secondary" onClick={onBack}>
+          ← 뒤로가기
+        </button> */}
         <button className="btn-home" onClick={onHome}>
           🏠 홈
         </button>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#1e293b', textAlign: 'center', marginLeft: 12 }}>
-          🖼️ 배너 이미지 문구 생성기
-        </h1>
+        <h2 style={{ marginLeft: '20px', fontSize: '1.6rem', color: '#1e293b' }}>
+          🖼️ 배너 이미지 문구 추천
+        </h2>
       </div>
       {/* 업로드 영역: 타이틀 바로 아래 */}
       <div
@@ -663,68 +650,67 @@ const BannerCopyGenerator: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBac
           </div>
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 24, marginBottom: 10, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-        <div style={{ minWidth: 160, flex: 1 }}>
+      {/* 체크박스 전체 영역 2컬럼 grid로 배치 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 32,
+        marginBottom: 16
+      }}>
+        {/* 1컬럼: 주요 무드(스타일)+주요 무드(핏) */}
+        <div>
           <div style={{ fontWeight: 700, color: '#2563eb', marginBottom: 4, fontSize: 15 }}>주요 무드(스타일)</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
             {styles.map(t => (
-              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 48, fontSize: 13, marginRight: 8, marginBottom: 2, whiteSpace: 'nowrap' }}>
                 <input type="checkbox" checked={selectedTags.style.includes(t)} onChange={() => handleTagChange('style', t)} /> {t}
               </label>
             ))}
           </div>
-        </div>
-        <div style={{ minWidth: 120, flex: 1 }}>
           <div style={{ fontWeight: 700, color: '#2563eb', marginBottom: 4, fontSize: 15 }}>주요 무드(핏)</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
             {fits.map(t => (
-              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 48, fontSize: 13, marginRight: 8, marginBottom: 2, whiteSpace: 'nowrap' }}>
                 <input type="checkbox" checked={selectedTags.fit.includes(t)} onChange={() => handleTagChange('fit', t)} /> {t}
               </label>
             ))}
           </div>
         </div>
-      </div>
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontWeight: 700, color: '#3b82f6', marginBottom: 4, fontSize: 15 }}>보조 무드(분위기)</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {moods.map(t => (
-            <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
-              <input type="checkbox" checked={selectedTags.mood.includes(t)} onChange={() => handleTagChange('mood', t)} /> {t}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-        <div style={{ minWidth: 120, flex: 1 }}>
+        {/* 2컬럼: 보조 무드(분위기)+계절+상황+핵심 명사 */}
+        <div>
+          <div style={{ fontWeight: 700, color: '#3b82f6', marginBottom: 6, fontSize: 16 }}>보조 무드</div>
+          <div style={{ fontWeight: 700, color: '#3b82f6', marginBottom: 4, fontSize: 15 }}>분위기</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {moods.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 48, fontSize: 13, marginRight: 8, marginBottom: 2, whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={selectedTags.mood.includes(t)} onChange={() => handleTagChange('mood', t)} /> {t}
+              </label>
+            ))}
+          </div>
           <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>계절</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {seasons.map(t => (
               <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
                 <input type="checkbox" checked={selectedTags.season.includes(t)} onChange={() => handleTagChange('season', t)} /> {t}
               </label>
             ))}
           </div>
-        </div>
-        <div style={{ minWidth: 120, flex: 1 }}>
           <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>상황</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {situations.map(t => (
               <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
                 <input type="checkbox" checked={selectedTags.situation.includes(t)} onChange={() => handleTagChange('situation', t)} /> {t}
               </label>
             ))}
           </div>
-        </div>
-      </div>
-      <div style={{ minWidth: 120, marginBottom: 12 }}>
-        <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>핵심 명사</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {nouns.map(t => (
-            <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
-              <input type="checkbox" checked={selectedTags.noun.includes(t)} onChange={() => handleTagChange('noun', t)} /> {t}
-            </label>
-          ))}
+          <div style={{ fontWeight: 500, color: '#3b82f6', marginBottom: 4 }}>핵심 명사</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {nouns.map(t => (
+              <label key={t} style={{ fontWeight: 500, color: '#334155', minWidth: 60, fontSize: 13 }}>
+                <input type="checkbox" checked={selectedTags.noun.includes(t)} onChange={() => handleTagChange('noun', t)} /> {t}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 8 }}>
