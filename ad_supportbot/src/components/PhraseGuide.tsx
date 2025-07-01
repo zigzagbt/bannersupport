@@ -1,312 +1,299 @@
 import React, { useState } from 'react';
+import FooterNav from './FooterNav';
 
 interface PhraseGuideProps {
   onBack: () => void;
   onHome: () => void;
 }
 
-const defaultAdjectives = [
-  '따뜻한','세련된','편안한','정돈된','포근한','자연스러운','부드러운','날렵한','감각적인','부담 없는','여유 있는','단정한','화사한','깔끔한','고급스러운','중독성 있는','실용적인','완성도 높은','추천받는','신선한'
-];
-const defaultSituations = [
-  '출근길에','약속 있을 때','하루 종일','아침마다','퇴근 후','주말마다','첫 데이트에','여행갈 때','급할 때','입기 귀찮을 때','갑자기 추워진 날','비 오는 날','손이 자주 가는','이유 있는 선택으로','고민될 때'
-];
-const defaultProducts = [
-  '니트','원피스','셔츠','팬츠','아우터','코트','가디건','블라우스','점퍼','슬랙스','립밤','블러셔','데일리템','이너웨어','데님'
+// 형용사별 자연스러운 꼬리(명사/표현) 사전
+const adjTails: Record<string, string[]> = {
+  '따뜻한': ['하루', '느낌', '무드', '감성', '스타일', '하루의 시작', '분위기', '계절'],
+  '포근한': ['느낌', '하루', '감성', '분위기', '무드', '스타일'],
+  '말랑한': ['촉감', '느낌', '감성', '하루', '분위기'],
+  '단정한': ['룩', '하루', '분위기', '스타일', '실루엣'],
+  '시크한': ['무드', '실루엣', '분위기', '룩', '스타일'],
+  '여유로운': ['하루', '분위기', '느낌', '감성', '시간'],
+  '부드러운': ['촉감', '느낌', '분위기', '감성', '착용감'],
+  '빈티지한': ['감성', '무드', '스타일', '분위기'],
+  '감각적인': ['컬러', '하루', '분위기', '감성', '스타일'],
+  '차분한': ['느낌', '분위기', '하루', '감성', '무드'],
+  '스포티한': ['룩', '무드', '스타일', '감성'],
+  '톡톡한': ['포인트', '느낌', '감성', '무드'],
+  '유연한': ['실루엣', '느낌', '분위기', '감성'],
+  '가벼운': ['착용감', '느낌', '하루', '분위기'],
+  '내추럴한': ['무드', '분위기', '감성', '스타일'],
+  '도톰한': ['촉감', '느낌', '감성', '분위기'],
+  '날렵한': ['실루엣', '분위기', '무드'],
+  '세련된': ['실루엣', '분위기', '무드', '룩', '감성', '스타일'],
+  '소프트한': ['느낌', '감성', '분위기', '착용감'],
+  '모던한': ['무드', '분위기', '스타일', '감성'],
+  '트렌디한': ['룩', '감성', '분위기', '스타일'],
+  '깔끔한': ['룩', '분위기', '스타일', '감성'],
+  '귀여운': ['포인트', '분위기', '감성', '룩'],
+  '클래식한': ['무드', '분위기', '스타일', '감성'],
+  '로맨틱한': ['무드', '분위기', '감성', '하루'],
+  '활동적인': ['하루', '룩', '분위기', '감성'],
+  '실용적인': ['룩', '감성', '분위기', '스타일'],
+  '사랑스러운': ['분위기', '감성', '하루', '포인트'],
+  '힙한': ['무드', '룩', '감성', '분위기'],
+  '청량한': ['느낌', '하루', '분위기', '감성'],
+  '꾸안꾸': ['감성', '스타일', '분위기', '룩'],
+  '데일리필수': ['아이템', '룩', '스타일'],
+  '데일리픽': ['아이템', '룩', '스타일'],
+};
+
+const adjectives = Object.keys(adjTails);
+
+const situations = [
+  '출근길에', '약속 있는 날', '하루 종일', '늦잠 잔 날', '퇴근 후', '주말마다', 
+  '비 오는 날', '날씨 애매한 날', '기분 전환할 때', '첫 만남에', '계절 바뀔 때', 
+  '사진 찍는 날', '날이 쌀쌀해질 때', '소풍 가는 날', '데이트할 때', 
+  '옷 고르기 귀찮을 때', '기본템 찾을 때', '매일 입고 싶을 때', '여행 갈 때', 
+  '편하게 입고 싶을 때'
 ];
 
-function generatePhrases({
-  adjectives,
-  situations,
-  products,
-  sentenceCount = 2,
-  maxLength = 18,
-  outputCount = 3
-}: {
-  adjectives: string[],
-  situations: string[],
-  products: string[],
-  sentenceCount: number,
-  maxLength: number,
-  outputCount: number
-}) {
+const templates = {
+  feeling: [
+    '{adjTail}',
+    '{adjTail} 가득',
+    '{adjTail} 연출',
+    '{adjTail} 무드',
+    '{adjTail} 감성',
+    '{adjTail} 분위기',
+    '{adjTail} 포인트',
+    '{adjTail} 컬러',
+    '{adjTail} 조합',
+    '{adjTail} 마무리',
+    '{adjTail}(으)로 완성하는 하루',
+    '{adjTail}(으)로 물드는 계절',
+    '{adjTail}(으)로 시작하는 아침',
+    '{adjTail}(으)로 마무리되는 하루',
+  ],
+  situation: [
+    '{situation} {adjTail}',
+    '{adjTail} {situation}',
+    '{situation}엔 {adjTail}',
+    '{adjTail} {situation}룩',
+    '{adjTail} {situation} 코디',
+    '{situation}에 {adjTail} 추천',
+    '{situation}에 {adjTail} 감성',
+    '{situation}에 {adjTail} 무드',
+    '{situation}에 {adjTail} 포인트',
+    '{situation}에 어울리는 {adjTail}',
+    '{situation}에 딱 맞는 {adjTail}',
+    '{situation}을 위한 {adjTail}',
+    '{situation}에 완성하는 {adjTail}',
+  ],
+  benefit: [
+    '{adjTail} 활용',
+    '{adjTail} 추천템',
+    '{adjTail} 스타일링',
+    '{adjTail} 완성',
+    '{adjTail} 입기 좋은 날',
+    '{adjTail} 실용템',
+    '{adjTail} 데일리룩',
+    '{adjTail}(으)로 핏 완성',
+    '{adjTail}(으)로 분위기 업',
+    '{adjTail}(으)로 스타일링',
+    '{adjTail}(으)로 매일 새롭게',
+    '{adjTail}(으)로 계절 준비',
+    '{adjTail}(으)로 감각적인 하루',
+    '{adjTail}(으)로 스타일 완성',
+  ]
+};
+
+function makeAdjTailPhrase(adj: string) {
+  const tails = adjTails[adj] || [];
+  if (tails.length === 0) return '';
+  const tail = tails[Math.floor(Math.random() * tails.length)];
+  if (adj.endsWith('한') || adj.endsWith('적인')) {
+    return `${adj} ${tail}`;
+  }
+  return `${adj}${tail}`;
+}
+
+function generateTypedPhrases(type: 'feeling' | 'situation' | 'benefit', adjectives: string[], situations: string[], count: number): string[] {
   const phrases: string[] = [];
-  for (let i = 0; i < outputCount; i++) {
-    let phrase = '';
-    for (let j = 0; j < sentenceCount; j++) {
-      const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-      const sit = situations[Math.floor(Math.random() * situations.length)];
-      const prod = products[Math.floor(Math.random() * products.length)];
-      let line = `${adj} ${sit} ${prod}`;
-      if (line.length > maxLength) {
-        line = line.slice(0, maxLength - 1) + '…';
-      }
-      phrase += (j > 0 ? '\n' : '') + line;
+  let tryCount = 0;
+  while (phrases.length < count && tryCount < 100) {
+    tryCount++;
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const situation = situations[Math.floor(Math.random() * situations.length)];
+    const adjTail = makeAdjTailPhrase(adj);
+    if (!adjTail) continue;
+    const templateArr = templates[type];
+    const template = templateArr[Math.floor(Math.random() * templateArr.length)];
+    let phrase = template
+      .replace('{adjTail}', adjTail)
+      .replace('{situation}', situation);
+    if (
+      phrase.trim().split(' ').length > 1 &&
+      !phrases.includes(phrase) &&
+      !/([가-힣]+한)\1/.test(phrase) &&
+      !phrase.includes('하게하게') &&
+      !phrase.includes('적인하게') &&
+      !phrase.includes('소프트한 느낌') &&
+      !phrase.includes('실용적인하게')
+    ) {
+      phrases.push(phrase);
     }
-    phrases.push(phrase);
   }
   return phrases;
 }
 
-const conceptAdjectiveMap: { [concept: string]: string[] } = {
-  '데일리': ['편안한', '부드러운', '여유 있는', '자연스러운', '실용적인', '중독성 있는'],
-  '오피스': ['세련된', '단정한', '깔끔한', '고급스러운', '정돈된', '완성도 높은'],
-  '러블리': ['화사한', '포근한', '따뜻한', '감각적인', '부드러운', '여유 있는'],
-  '캐주얼': ['편안한', '자연스러운', '실용적인', '중독성 있는', '여유 있는', '깔끔한'],
-  '모던': ['세련된', '깔끔한', '고급스러운', '감각적인', '정돈된', '단정한'],
-  '고급': ['고급스러운', '완성도 높은', '세련된', '감각적인', '추천받는', '단정한'],
-  '스포티': ['활동적인', '경쾌한', '에너지 넘치는', '편안한', '실용적인', '중독성 있는'],
-  '미니멀': ['깔끔한', '단정한', '정돈된', '여유 있는', '실용적인', '세련된'],
-  '빈티지': ['감성적인', '따뜻한', '자연스러운', '포근한', '중독성 있는', '추천받는'],
-  '페미닌': ['부드러운', '화사한', '따뜻한', '여유 있는', '감각적인', '고급스러운'],
-};
-const conceptList = Object.keys(conceptAdjectiveMap);
-
 const PhraseGuide: React.FC<PhraseGuideProps> = ({ onBack, onHome }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [generated, setGenerated] = useState<{
+    feeling: string[];
+    situation: string[];
+    benefit: string[];
+  }>({ feeling: [], situation: [], benefit: [] });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copyType, setCopyType] = useState<'mypage' | 'ribbon'>('mypage');
 
-  const [sentenceCount, setSentenceCount] = useState(2);
-  const [maxLength, setMaxLength] = useState(18);
-  const [outputCount, setOutputCount] = useState(3);
-  const [adjectives, setAdjectives] = useState(defaultAdjectives.join(', '));
-  const [situations, setSituations] = useState(defaultSituations.join(', '));
-  const [products, setProducts] = useState(defaultProducts.join(', '));
-  const [generated, setGenerated] = useState<string[]>([]);
-  const [selectedConcept, setSelectedConcept] = useState('');
-
-  const phraseCategories = [
-    {
-      id: 'discount',
-      title: '1️⃣ 할인/이벤트 강조',
-      phrases: [
-        '🔥 오늘만 특가! ~50% 할인',
-        '⚡ 플래시 세일 진행중',
-        '🎉 신규 고객 20% 할인',
-        '💎 VIP 고객 전용 특가',
-        '📅 기간 한정 특가',
-        '🎁 구매 시 사은품 증정'
-      ]
-    },
-    {
-      id: 'review',
-      title: '2️⃣ 후기 기반 신뢰 유도',
-      phrases: [
-        '⭐ 4.8점 고객 만족도',
-        '💬 1000+ 후기 보기',
-        '👍 베스트 리뷰어 추천',
-        '🏆 연속 3년 베스트셀러',
-        '💯 만족도 100% 보장',
-        '👥 10만 고객이 선택한'
-      ]
-    },
-    {
-      id: 'fomo',
-      title: '3️⃣ 클릭 유도형 (FOMO)',
-      phrases: [
-        '⏰ 마감 임박! 재고 소진',
-        '🚨 마지막 기회 놓치지 마세요',
-        '💥 오늘 하루만! 내일부터 가격 인상',
-        '🔥 핫딜 마감 30분 전',
-        '⚡ 빠른 구매가 관건!',
-        '🎯 한정 수량 선착순'
-      ]
-    },
-    {
-      id: 'mypage',
-      title: '4️⃣ 마이페이지 배너용',
-      phrases: [
-        '💝 내가 찜한 그 상품, 오늘 할인 중!',
-        '🔥 1년 중 제일 핫해! ~90%',
-        '😱 놓치면 후회할 베스트템',
-        '📊 이번 달 인기템 TOP5',
-        '🎁 나만을 위한 맞춤 추천',
-        '⭐ 내 취향 저격 상품 모음'
-      ]
-    }
-  ];
-
-  const allPhrases = phraseCategories.flatMap(category => category.phrases);
-
-  const filteredPhrases = searchQuery
-    ? allPhrases.filter(phrase => phrase.toLowerCase().includes(searchQuery.toLowerCase()))
-    : [];
-
-  const suggestedKeywords = ['할인', '이벤트', '신상', '후기', '마감임박', '무료배송', '한정수량', '고객'];
-
-  const handleGenerate = () => {
-    const adjArr = adjectives.split(',').map(s => s.trim()).filter(Boolean);
-    const sitArr = situations.split(',').map(s => s.trim()).filter(Boolean);
-    const prodArr = products.split(',').map(s => s.trim()).filter(Boolean);
-    setGenerated(
-      generatePhrases({
-        adjectives: adjArr,
-        situations: sitArr,
-        products: prodArr,
-        sentenceCount,
-        maxLength,
-        outputCount
-      })
-    );
+  // 글자수 기준 필터
+  const filterByLength = (phrases: string[]) => {
+    const maxLen = copyType === 'mypage' ? 26 : 18;
+    return phrases.filter(p => p.replace(/\n/g, '').length <= maxLen);
   };
 
-  const handleConceptChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const concept = e.target.value;
-    setSelectedConcept(concept);
-    if (conceptAdjectiveMap[concept]) {
-      setAdjectives(conceptAdjectiveMap[concept].join(', '));
-    }
+  const generatePhrases = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setGenerated({
+        feeling: filterByLength(generateTypedPhrases('feeling', adjectives, situations, 8)).slice(0, 4),
+        situation: filterByLength(generateTypedPhrases('situation', adjectives, situations, 8)).slice(0, 4),
+        benefit: filterByLength(generateTypedPhrases('benefit', adjectives, situations, 8)).slice(0, 4),
+      });
+      setIsGenerating(false);
+    }, 800);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text.replace(/\n/g, ' '));
+    alert('클립보드에 복사되었습니다!');
   };
 
   return (
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← 뒤로가기
-          </button>
+          {onBack && (
+            <button onClick={onBack} style={{ background: '#e0e7ef', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', marginRight: 8 }}>
+              ← 뒤로가기
+            </button>
+          )}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>
           <h2 style={{ marginLeft: '20px', fontSize: '1.6rem', color: '#1e293b' }}>
-            ✨ 조건에 맞는 광고 문구 생성기
+            문구 추천
           </h2>
         </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '16px 0', justifyContent: 'center' }}>
+          <label style={{ fontWeight: 500, color: '#1e293b' }}>
+            <input
+              type="radio"
+              checked={copyType === "mypage"}
+              onChange={() => setCopyType("mypage")}
+              style={{ marginRight: 6 }}
+            />
+            마이페이지 배너 (13자×2줄)
+          </label>
+          <label style={{ fontWeight: 500, color: '#1e293b' }}>
+            <input
+              type="radio"
+              checked={copyType === "ribbon"}
+              onChange={() => setCopyType("ribbon")}
+              style={{ marginRight: 6 }}
+            />
+            띠배너 (18자 1줄)
+          </label>
+        </div>
 
-        <div className="mb-20" style={{ background: '#f8fafc', borderRadius: '14px', padding: '24px', marginBottom: '32px' }}>
-          <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginBottom: '18px' }}>
-            <div>
-              <label style={{ fontWeight: 600 }}>문장 수</label><br/>
-              <input type="number" min={1} max={5} value={sentenceCount} onChange={e => setSentenceCount(Number(e.target.value))} style={{ width: 60, padding: 4, borderRadius: 6, border: '1px solid #e5e7eb' }} /> 줄
-            </div>
-            <div>
-              <label style={{ fontWeight: 600 }}>글자 수 제한</label><br/>
-              <input type="number" min={6} max={30} value={maxLength} onChange={e => setMaxLength(Number(e.target.value))} style={{ width: 60, padding: 4, borderRadius: 6, border: '1px solid #e5e7eb' }} /> 자
-            </div>
-            <div>
-              <label style={{ fontWeight: 600 }}>출력 개수</label><br/>
-              <input type="number" min={1} max={10} value={outputCount} onChange={e => setOutputCount(Number(e.target.value))} style={{ width: 60, padding: 4, borderRadius: 6, border: '1px solid #e5e7eb' }} /> 개
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginBottom: '18px' }}>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontWeight: 600 }}>상황/컨셉 선택</label><br/>
-              <select value={selectedConcept} onChange={handleConceptChange} style={{ width: '100%', borderRadius: 6, border: '1px solid #e5e7eb', padding: 6, fontSize: '1rem', marginBottom: 8 }}>
-                <option value="">직접 입력</option>
-                {conceptList.map(concept => (
-                  <option key={concept} value={concept}>{concept}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontWeight: 600 }}>형용사 리스트 (쉼표로 구분)</label><br/>
-              <textarea value={adjectives} onChange={e => setAdjectives(e.target.value)} rows={2} style={{ width: '100%', borderRadius: 6, border: '1px solid #e5e7eb', padding: 6, fontSize: '1rem' }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontWeight: 600 }}>상황 리스트 (쉼표로 구분)</label><br/>
-              <textarea value={situations} onChange={e => setSituations(e.target.value)} rows={2} style={{ width: '100%', borderRadius: 6, border: '1px solid #e5e7eb', padding: 6, fontSize: '1rem' }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label style={{ fontWeight: 600 }}>제품 리스트 (쉼표로 구분)</label><br/>
-              <textarea value={products} onChange={e => setProducts(e.target.value)} rows={2} style={{ width: '100%', borderRadius: 6, border: '1px solid #e5e7eb', padding: 6, fontSize: '1rem' }} />
-            </div>
-          </div>
-          <button className="btn" style={{ fontSize: '1.1rem', padding: '12px 32px', background: '#3b82f6', color: 'white', fontWeight: 600, borderRadius: 8 }} onClick={handleGenerate}>
+        <div className="mb-20">
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>
             문구 생성
+          </h3>
+          <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '15px' }}>
+            자연스럽고 감각적인 긴 문구를 한 번에 생성합니다.
+          </p>
+          <button 
+            className="btn" 
+            style={{ fontSize: '1.1rem', padding: '12px 32px', background: '#3b82f6', color: 'white', fontWeight: 600, borderRadius: 8 }}
+            onClick={generatePhrases}
+            disabled={isGenerating}
+          >
+            {isGenerating ? '생성 중...' : '문구 생성하기'}
           </button>
         </div>
 
-        {generated.length > 0 && (
-          <div className="mb-20" style={{ background: '#f1f5f9', borderRadius: '12px', padding: '20px', marginBottom: '32px' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#1e293b', marginBottom: '12px' }}>생성된 문구</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {generated.map((phrase, idx) => (
-                <div key={idx} style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', fontSize: '1.08rem', color: '#1e293b', fontWeight: 500, whiteSpace: 'pre-line', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>{phrase}</span>
-                  <button className="btn btn-secondary" style={{ marginLeft: '18px', fontSize: '0.9rem', padding: '7px 16px' }} onClick={() => navigator.clipboard.writeText(phrase)}>
-                    복사
-                  </button>
-                </div>
-              ))}
+        {(generated.feeling.length > 0 || generated.situation.length > 0 || generated.benefit.length > 0) && (
+          <div className="mb-20">
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>생성된 문구</h3>
+            <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '18px' }}>
+              <div>
+                <h4 style={{ color: '#3b82f6', fontWeight: 700, marginBottom: 10 }}>느낌 중심</h4>
+                {generated.feeling.map((phrase, idx) => (
+                  <div key={idx} className="card" style={{ padding: '14px', marginBottom: '10px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: '1.05rem', color: '#1e293b', fontWeight: 500, marginBottom: '8px', whiteSpace: 'pre-line' }}>{phrase}</div>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.9rem', padding: '6px 14px', alignSelf: 'flex-end' }} onClick={() => copyToClipboard(phrase)}>
+                      복사
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 style={{ color: '#059669', fontWeight: 700, marginBottom: 10 }}>상황 중심</h4>
+                {generated.situation.map((phrase, idx) => (
+                  <div key={idx} className="card" style={{ padding: '14px', marginBottom: '10px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: '1.05rem', color: '#1e293b', fontWeight: 500, marginBottom: '8px', whiteSpace: 'pre-line' }}>{phrase}</div>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.9rem', padding: '6px 14px', alignSelf: 'flex-end' }} onClick={() => copyToClipboard(phrase)}>
+                      복사
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 style={{ color: '#f59e42', fontWeight: 700, marginBottom: 10 }}>혜택 강조형</h4>
+                {generated.benefit.map((phrase, idx) => (
+                  <div key={idx} className="card" style={{ padding: '14px', marginBottom: '10px', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: '1.05rem', color: '#1e293b', fontWeight: 500, marginBottom: '8px', whiteSpace: 'pre-line' }}>{phrase}</div>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.9rem', padding: '6px 14px', alignSelf: 'flex-end' }} onClick={() => copyToClipboard(phrase)}>
+                      복사
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         <div className="mb-20">
-          <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>
-            어떤 문구를 찾고 계신가요?
-          </h3>
-          <input
-            type="text"
-            className="input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="예: 할인, 신상, 무료배송"
-            style={{ width: '100%', marginBottom: '15px' }}
-          />
-
-          <div style={{ marginBottom: '20px' }}>
-            <span style={{ marginRight: '10px', color: '#64748b', fontSize: '0.9rem' }}>추천 키워드:</span>
-            {suggestedKeywords.map(keyword => (
-              <button
-                key={keyword}
-                className="btn-tag"
-                onClick={() => setSearchQuery(keyword)}
-              >
-                #{keyword}
-              </button>
-            ))}
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>참고 키워드</h3>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div>
+              <h4 style={{ fontSize: '1rem', marginBottom: '8px', color: '#3b82f6' }}>형용사</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                {adjectives.map((adj, index) => (
+                  <span key={index} style={{ background: '#e0e7ef', color: '#2563eb', borderRadius: '12px', padding: '4px 12px', fontSize: '0.95rem', fontWeight: 500 }}>{adj}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1rem', marginBottom: '8px', color: '#3b82f6' }}>상황</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                {situations.map((sit, index) => (
+                  <span key={index} style={{ background: '#e0e7ef', color: '#059669', borderRadius: '12px', padding: '4px 12px', fontSize: '0.95rem', fontWeight: 500 }}>{sit}</span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-
-        {searchQuery && (
-          <div className="mb-20">
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '15px', color: '#1e293b' }}>
-              🔍 '{searchQuery}' 검색 결과
-            </h3>
-            
-            {filteredPhrases.length > 0 ? (
-              <div className="card">
-                <div className="grid">
-                  {filteredPhrases.map((phrase, index) => (
-                    <div key={index} className="card" style={{ padding: '15px' }}>
-                      <p style={{ 
-                        fontSize: '1rem', 
-                        color: '#1e293b', 
-                        fontWeight: '500',
-                        lineHeight: '1.4'
-                      }}>
-                        {phrase}
-                      </p>
-                      <button 
-                        className="btn btn-secondary" 
-                        style={{ 
-                          marginTop: '10px', 
-                          fontSize: '0.8rem',
-                          padding: '6px 12px'
-                        }}
-                        onClick={() => navigator.clipboard.writeText(phrase)}
-                      >
-                        복사하기
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p style={{ color: '#64748b' }}>검색 결과가 없습니다. 다른 키워드로 검색해보세요.</p>
-            )}
-          </div>
-        )}
-
-        {!searchQuery && (
-          <div className="tip">
-            <strong>💡 이렇게 검색해보세요!</strong><br/>
-            '오늘만', '마감', '추천', '고객' 등 상품이나 이벤트와 관련된 다양한 키워드로 검색하여 딱 맞는 문구를 찾아보세요.
-          </div>
-        )}
       </div>
+      <FooterNav onHome={onHome} onBack={onBack} />
     </div>
   );
 };
 
-export default PhraseGuide; 
+export default PhraseGuide;

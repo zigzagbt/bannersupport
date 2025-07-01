@@ -100,12 +100,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ onNavigate }) => {
     if (input.includes('문구') || input.includes('글귀') || input.includes('카피')) {
       return {
         id: Date.now() + 1,
-        text: '효과적인 문구를 찾고 계시는군요! 📣\n\n추천 카테고리:\n1️⃣ 할인/이벤트 강조\n2️⃣ 후기 기반 신뢰 유도\n3️⃣ 클릭 유도형 (FOMO)\n4️⃣ 마이페이지 배너용\n\n"잘 먹히는 문구 추천받기" 메뉴로 이동해서 카테고리별로 확인해보세요!',
+        text: '효과적인 문구를 찾고 계시는군요! 🖼️\n\n배너 이미지에 어울리는 감각적인 문구를 추천해드릴게요!\n\n"배너 이미지 문구 추천" 메뉴로 이동해서 다양한 문구를 확인해보세요!',
         isUser: false,
         timestamp: new Date(),
         action: {
           type: 'navigate',
-          menu: 'phrase'
+          menu: 'banner-image-phrase'
         }
       };
     }

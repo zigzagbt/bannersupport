@@ -8,15 +8,19 @@ import PngGuide from './components/PngGuide';
 import TemplateGuide from './components/TemplateGuide';
 import FullGuide from './components/FullGuide';
 import Chatbot from './components/Chatbot';
+import BannerCopyGenerator from './components/BannerCopyGenerator';
+import BannerCopyGenerator2 from './components/BannerCopyGenerator2';
+import FooterNav from './components/FooterNav';
 
 export type MenuItem = 
   | 'main'
   | 'color'
   | 'text-color'
-  | 'phrase'
   | 'png'
   | 'template'
-  | 'full-guide';
+  | 'full-guide'
+  | 'banner-image-phrase'
+  | 'banner-image-phrase-v2';
 
 function App() {
   const [currentMenu, setCurrentMenu] = useState<MenuItem>('main');
@@ -24,6 +28,22 @@ function App() {
   const [palette, setPalette] = useState<string[]>([]);
   
   const goHome = () => setCurrentMenu('main');
+
+  // Determine onBack for FooterNav
+  let onBack: (() => void) | undefined = undefined;
+  switch (currentMenu) {
+    case 'color':
+    case 'png':
+    case 'template':
+    case 'full-guide':
+      onBack = goHome;
+      break;
+    case 'text-color':
+      onBack = () => setCurrentMenu('color');
+      break;
+    default:
+      onBack = undefined;
+  }
 
   const renderContent = () => {
     switch (currentMenu) {
@@ -49,14 +69,16 @@ function App() {
           palette={palette}
           setBackgroundColor={setSelectedBackgroundColor}
         />;
-      case 'phrase':
-        return <PhraseGuide onBack={goHome} onHome={goHome} />;
       case 'png':
         return <PngGuide onBack={goHome} onHome={goHome} />;
       case 'template':
         return <TemplateGuide onBack={goHome} onHome={goHome} />;
       case 'full-guide':
         return <FullGuide onBack={goHome} onHome={goHome} />;
+      case 'banner-image-phrase':
+        return <BannerCopyGenerator onHome={goHome} />;
+      case 'banner-image-phrase-v2':
+        return <BannerCopyGenerator2 onHome={goHome} onBack={goHome} />;
       default:
         return <MainMenu onMenuSelect={setCurrentMenu} />;
     }
@@ -69,6 +91,7 @@ function App() {
         {renderContent()}
       </div>
       <Chatbot onNavigate={setCurrentMenu} />
+      <FooterNav onHome={goHome} onBack={onBack} />
     </div>
   );
 }

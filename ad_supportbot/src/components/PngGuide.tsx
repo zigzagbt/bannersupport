@@ -1,4 +1,5 @@
 import React from 'react';
+import FooterNav from './FooterNav';
 
 interface PngGuideProps {
   onBack: () => void;
@@ -25,9 +26,11 @@ const PngGuide: React.FC<PngGuideProps> = ({ onBack, onHome }) => {
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← 뒤로가기
-          </button>
+          {onBack && (
+            <button onClick={onBack} style={{ background: '#e0e7ef', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', marginRight: 8 }}>
+              ← 뒤로가기
+            </button>
+          )}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>
@@ -41,10 +44,7 @@ const PngGuide: React.FC<PngGuideProps> = ({ onBack, onHome }) => {
             배경 없는 PNG 저장이 필요하신가요?
           </h3>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <img src="/images/example_banner.png" alt="배너 예시" style={{ maxWidth: '320px', width: '100%', borderRadius: '10px', boxShadow: '0 2px 8px #e0e7ef' }} />
-            <div style={{ color: '#64748b', fontSize: '0.95rem', marginTop: '8px' }}>
-              (샘플 배너 이미지)
-            </div>
+            {/* 포토샵 예시 이미지 및 (샘플 배너 이미지) 텍스트 삭제 */}
           </div>
           <div className="grid">
             {steps.map((step) => (
@@ -233,12 +233,8 @@ const PngGuide: React.FC<PngGuideProps> = ({ onBack, onHome }) => {
             </div>
           </div>
         </div>
-
-        <div className="warning">
-          <strong>⚠️ JPG 또는 PNG-8로 저장하면 흰 배경이 생길 수 있어요.</strong><br/>
-          → <button className="btn">저장 방식 비교 가이드 보기</button>
-        </div>
       </div>
+      <FooterNav onHome={onHome} onBack={onBack} />
     </div>
   );
 };

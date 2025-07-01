@@ -11,8 +11,9 @@ const Header: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '16px'
-      }}>
+        gap: '16px',
+        cursor: 'pointer'
+      }} onClick={() => window.location.href = '/'}>
         <img src="/images/logo.png" alt="ZIGZAG 로고" style={{ height: '30px', objectFit: 'contain' }} />
         <span>배너 제작 도우미</span>
       </h1>

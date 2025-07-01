@@ -1,4 +1,5 @@
 import React from 'react';
+import FooterNav from './FooterNav';
 
 interface TemplateGuideProps {
   onBack: () => void;
@@ -10,9 +11,11 @@ const TemplateGuide: React.FC<TemplateGuideProps> = ({ onBack, onHome }) => {
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← 뒤로가기
-          </button>
+          {onBack && (
+            <button onClick={onBack} style={{ background: '#e0e7ef', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', marginRight: 8 }}>
+              ← 뒤로가기
+            </button>
+          )}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>
@@ -128,6 +131,7 @@ const TemplateGuide: React.FC<TemplateGuideProps> = ({ onBack, onHome }) => {
           • 텍스트는 가독성을 위해 적절한 크기로 조정하세요
         </div>
       </div>
+      <FooterNav onHome={onHome} onBack={onBack} />
     </div>
   );
 };

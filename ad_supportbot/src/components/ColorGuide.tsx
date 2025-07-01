@@ -1,5 +1,6 @@
 import React, { useRef, DragEvent } from 'react';
 import ColorThief from 'color-thief-browser';
+import FooterNav from './FooterNav';
 
 interface ColorGuideProps {
   onBack: () => void;
@@ -103,9 +104,11 @@ const ColorGuide: React.FC<ColorGuideProps> = ({ onBack, onHome, onNextStep, pal
     <div>
       <div className="card">
         <div className="flex" style={{ alignItems: 'center', marginBottom: '20px' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← 뒤로가기
-          </button>
+          {onBack && (
+            <button onClick={onBack} style={{ background: '#e0e7ef', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', marginRight: 8 }}>
+              ← 뒤로가기
+            </button>
+          )}
           <button className="btn-home" onClick={onHome}>
             🏠 홈
           </button>
@@ -238,7 +241,7 @@ const ColorGuide: React.FC<ColorGuideProps> = ({ onBack, onHome, onNextStep, pal
                   }}
                   style={{ marginRight: '10px' }}
                 >
-                  이미지 다시 선택하기
+                  이미지 선택하고 컬러 추천받기
                 </button>
                 <button
                   className="btn"
@@ -291,6 +294,7 @@ const ColorGuide: React.FC<ColorGuideProps> = ({ onBack, onHome, onNextStep, pal
           • 색상 선택 후 다음 단계로 넘어가면 텍스트 컬러를 추천받을 수 있습니다
         </div>
       </div>
+      <FooterNav onHome={onHome} onBack={onBack} />
     </div>
   );
 };
