@@ -100,12 +100,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ onNavigate }) => {
     if (input.includes('문구') || input.includes('글귀') || input.includes('카피')) {
       return {
         id: Date.now() + 1,
-        text: '효과적인 문구를 찾고 계시는군요! 🖼️\n\n배너 이미지에 어울리는 감각적인 문구를 추천해드릴게요!\n\n"배너 이미지 문구 추천" 메뉴로 이동해서 다양한 문구를 확인해보세요!',
+        text: '감성, 정보, 세일 등 다양한 스타일의 배너 문구가 필요하신가요?\n\n아래 "배너 이미지 문구 추천" 메뉴에서 카테고리별로 문구를 직접 확인하고, 원하는 문구를 복사해 활용해보세요!\n\n(메뉴로 바로 이동하려면 아래 버튼을 눌러주세요)',
         isUser: false,
         timestamp: new Date(),
         action: {
           type: 'navigate',
-          menu: 'banner-image-phrase'
+          menu: 'banner-image-phrase-v2'
         }
       };
     }
@@ -200,6 +200,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ onNavigate }) => {
     }
   };
 
+  const RECOMMENDED_QUESTIONS = [
+    '배경 컬러 추천해주세요',
+    '문구 추천',
+    'PNG 저장법 알려줘',
+    '텍스트 색상 가이드 알려줘'
+  ];
+
   if (!isOpen) {
     return (
       <button
@@ -221,8 +228,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ onNavigate }) => {
       
       <div className="chatbot-body">
         <div className="chatbot-messages">
-          {messages.map((message) => (
-            <div key={message.id} className={`message ${message.isUser ? 'user' : 'bot'}`}>
+          {messages.map((message, idx) => (
+            <div key={message.id} className={`message ${message.isUser ? 'user' : 'bot'}`}> 
               <div className="message-avatar">
                 {message.isUser ? '👤' : '🤖'}
               </div>
@@ -233,14 +240,45 @@ const Chatbot: React.FC<ChatbotProps> = ({ onNavigate }) => {
                     {index < message.text.split('\n').length - 1 && <br />}
                   </div>
                 ))}
-                {message.action && (
-                  <div style={{ 
-                    marginTop: '10px', 
-                    fontSize: '12px', 
-                    opacity: 0.8,
-                    fontStyle: 'italic'
+                {message.text.includes('죄송해요') && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    margin: '18px 0 0 0',
+                    width: '100%'
                   }}>
-                    잠시 후 해당 메뉴로 이동합니다...
+                    <div style={{ color: '#64748b', fontSize: '0.98rem', marginBottom: 6 }}>
+                      아래와 같은 기능을 도와드릴 수 있습니다
+                    </div>
+                    {RECOMMENDED_QUESTIONS.map((q, i) => (
+                      <button
+                        key={i}
+                        style={{
+                          background: '#e0e7ef',
+                          color: '#2563eb',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '0.92rem',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          marginBottom: 2,
+                          minWidth: 0,
+                          width: 'auto',
+                          boxShadow: '0 1px 4px #e0e7ef',
+                          transition: 'background 0.2s'
+                        }}
+                        onClick={() => {
+                          setInputValue(q);
+                          setTimeout(handleSendMessage, 100);
+                        }}
+                      >
+                        {q}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
