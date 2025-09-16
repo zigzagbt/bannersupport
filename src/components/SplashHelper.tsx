@@ -244,7 +244,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     ctx.drawImage(img, 0, 0, naturalSize.w, naturalSize.h, dx, dy, dw, dh);
 
     // draw gradient overlay with design-specified values
-    if (gradientEnabled) {
+    if (gradientEnabled && pickedColor !== 'rgba(0,0,0,0)') {
       // Gradient area: 15% + 160px longer
       const baseHeight = Math.round(TARGET_H * 0.15); // 15% of canvas height
       const extraHeight = Math.round(160 * (TARGET_H / FRAME_H)); // 160px scaled to target size
@@ -349,7 +349,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                       height: naturalSize.h
                     }}
                   />
-                  {gradientEnabled && (
+                  {gradientEnabled && pickedColor !== 'rgba(0,0,0,0)' && (
                     <div
                       style={{
                         pointerEvents: 'none',
