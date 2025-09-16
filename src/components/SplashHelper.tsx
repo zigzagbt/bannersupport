@@ -47,6 +47,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [gradientEnabled, setGradientEnabled] = useState<boolean>(true);
   const [pickedColor, setPickedColor] = useState<string>('rgba(0,0,0,0)');
   const [eyedropperMode, setEyedropperMode] = useState<boolean>(false);
+  const [showGuides, setShowGuides] = useState<boolean>(true);
 
   const toRgbaWithAlpha = (input: string, alpha: number) => {
     if (input.startsWith('rgba')) {
@@ -126,7 +127,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       const coverScale = Math.max(FRAME_W / size.w, FRAME_H / size.h);
       if (mode === 'crop') {
         setScale(coverScale);
-        setPan({ x: (FRAME_W - size.w * coverScale) / 2, y: (FRAME_H - size.h * coverScale) / 2 });
+        const newPanX = (FRAME_W - size.w * coverScale) / 2;
+        const newPanY = (FRAME_H - size.h * coverScale) / 2;
+        
+        setPan({ x: newPanX, y: newPanY });
       } else {
         setScale(1);
         setPan({ x: 0, y: 0 });
@@ -165,7 +169,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
   const moveDrag = (clientX: number, clientY: number) => {
     if (!dragging || !dragStartRef.current) return;
-    setPan({ x: clientX - dragStartRef.current.x, y: clientY - dragStartRef.current.y });
+    const newX = clientX - dragStartRef.current.x;
+    const newY = clientY - dragStartRef.current.y;
+    
+    setPan({ x: newX, y: newY });
   };
 
   const endDrag = () => {
@@ -187,7 +194,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       const cy = FRAME_H / 2;
       const ux = (cx - pan.x) / prev;
       const uy = (cy - pan.y) / prev;
-      setPan({ x: cx - ux * newScale, y: cy - uy * newScale });
+      const newPanX = cx - ux * newScale;
+      const newPanY = cy - uy * newScale;
+      
+      setPan({ x: newPanX, y: newPanY });
       return newScale;
     });
   };
@@ -245,11 +255,11 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
     // draw gradient overlay with design-specified values
     if (gradientEnabled && pickedColor !== 'rgba(0,0,0,0)') {
-      // Gradient area: 15% + 160px longer
+      // Gradient area: 15% + 155px (5px longer)
       const baseHeight = Math.round(TARGET_H * 0.15); // 15% of canvas height
-      const extraHeight = Math.round(160 * (TARGET_H / FRAME_H)); // 160px scaled to target size
+      const extraHeight = Math.round(155 * (TARGET_H / FRAME_H)); // 155px scaled to target size (5px longer)
       const gradWidth = TARGET_W; // Full width
-      const gradHeight = baseHeight + extraHeight; // 15% + 160px
+      const gradHeight = baseHeight + extraHeight; // 15% + 155px
       
       const grad = ctx.createLinearGradient(0, 0, 0, gradHeight);
       const base = pickedColor;
@@ -356,25 +366,93 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                         position: 'absolute',
                         left: 0,
                         right: 0,
-                        top: 0,
-                        height: Math.round(FRAME_H * 0.15) + 160, // 15% + 160px longer
+                        top: 0, // Start from top (y=0)
+                        height: Math.round(FRAME_H * 0.15) + 155, // 15% + 155px (5px longer)
                         background: `linear-gradient(180deg, ${toRgbaWithAlpha(pickedColor, 1)} 0%, ${toRgbaWithAlpha(pickedColor, 1)} 65.34%, ${toRgbaWithAlpha(pickedColor, 0)} 100%)`
                       }}
                     />
                   )}
-                  {/* Safe Zone overlay (예시) */}
-                  <div
-                    style={{
-                      pointerEvents: 'none',
-                      position: 'absolute',
-                      left: 16,
-                      right: 16,
-                      top: SAFE_TOP,
-                      bottom: SAFE_BOTTOM,
-                      border: '2px dashed #60a5fa',
-                      background: 'rgba(96,165,250,0.12)'
-                    }}
-                  />
+                  {/* Safe Zone overlay */}
+                  {showGuides && (
+                    <div
+                      style={{
+                        pointerEvents: 'none',
+                        position: 'absolute',
+                        left: 16,
+                        right: 16,
+                        top: SAFE_TOP,
+                        bottom: SAFE_BOTTOM,
+                        border: '2px dashed #60a5fa',
+                        background: 'rgba(96,165,250,0.12)'
+                      }}
+                    />
+                  )}
+                  
+                  {/* 사진 가이드선 (y=160px) */}
+                  {showGuides && (
+                    <>
+                      {/* 가이드선 위쪽에 문구 표시 */}
+                      <div
+                        style={{
+                          pointerEvents: 'none',
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          top: 90,
+                          height: 20,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.8)',
+                            color: 'white',
+                            padding: '4px 12px',
+                            borderRadius: 6,
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          사진 상단이 짧을 경우, 가이드선 이상으로 위치해주세요.<br/>
+                          그래야 배경 그라데이션이 자연스럽게 연결됩니다.
+                        </div>
+                      </div>
+                      
+                      {/* 사진 가이드선 */}
+                      <div
+                        style={{
+                          pointerEvents: 'none',
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          top: 160,
+                          height: 0,
+                          borderTop: '2px dashed #ff4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'rgba(255, 68, 68, 0.9)',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: 4,
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            marginTop: '-10px'
+                          }}
+                        >
+                          사진 가이드선
+                        </div>
+                      </div>
+                    </>
+                  )}
                   {/* 문구 고정 영역 (예시) */}
                   {/* 삭제 요청: 하단 반투명 박스 제거 */}
                 </div>
@@ -398,6 +476,9 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
                     <input type="checkbox" checked={gradientEnabled} onChange={(e) => setGradientEnabled(e.target.checked)} /> 상단 그라데이션
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
+                    <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /> 가이드 표시
                   </label>
                   {gradientEnabled && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
@@ -446,7 +527,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                           const cy = FRAME_H / 2;
                           const ux = (cx - pan.x) / prev;
                           const uy = (cy - pan.y) / prev;
-                          setPan({ x: cx - ux * next, y: cy - uy * next });
+                          const newPanX = cx - ux * next;
+                          const newPanY = cy - uy * next;
+                          
+                          setPan({ x: newPanX, y: newPanY });
                           setScale(next);
                         }}
                       />
@@ -456,7 +540,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                         const prev = scale;
                         const cx = FRAME_W / 2; const cy = FRAME_H / 2;
                         const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
-                        setPan({ x: cx - ux * next, y: cy - uy * next });
+                        const newPanX = cx - ux * next;
+                        const newPanY = cy - uy * next;
+                        
+                        setPan({ x: newPanX, y: newPanY });
                         setScale(next);
                       }}>+</button>
                       <button className="btn" style={{ padding: '6px 10px' }} onClick={() => {
@@ -465,7 +552,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                         const prev = scale;
                         const cx = FRAME_W / 2; const cy = FRAME_H / 2;
                         const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
-                        setPan({ x: cx - ux * next, y: cy - uy * next });
+                        const newPanX = cx - ux * next;
+                        const newPanY = cy - uy * next;
+                        
+                        setPan({ x: newPanX, y: newPanY });
                         setScale(next);
                       }}>-</button>
                       <button
@@ -474,7 +564,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                           if (!naturalSize) return;
                           const coverScale = Math.max(FRAME_W / naturalSize.w, FRAME_H / naturalSize.h);
                           setScale(coverScale);
-                          setPan({ x: (FRAME_W - naturalSize.w * coverScale) / 2, y: (FRAME_H - naturalSize.h * coverScale) / 2 });
+                          const newPanX = (FRAME_W - naturalSize.w * coverScale) / 2;
+                          const newPanY = (FRAME_H - naturalSize.h * coverScale) / 2;
+                          
+                          setPan({ x: newPanX, y: newPanY });
                         }}
                         style={{ padding: '8px 12px' }}
                       >
