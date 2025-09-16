@@ -486,15 +486,16 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                         className="btn"
                         onClick={() => setEyedropperMode(!eyedropperMode)}
                         style={{ 
-                          padding: '4px 8px', 
+                          padding: '6px 12px', 
                           background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
                           color: eyedropperMode ? '#fff' : '#111',
-                          fontSize: '10px',
-                          borderRadius: 4
+                          fontSize: '12px',
+                          borderRadius: 4,
+                          fontWeight: 'bold'
                         }}
                         title="스포이드로 색상 선택"
                       >
-                        🎨
+                        {eyedropperMode ? '색상선택 중...' : '색상선택'}
                       </button>
                       {pickedColor !== 'rgba(0,0,0,0)' && (
                         <div
