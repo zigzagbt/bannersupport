@@ -3,13 +3,16 @@ import Header from './components/Header';
 import MainMenu from './components/MainMenu';
 import ColorGuide from './components/ColorGuide';
 import TextColorGuide from './components/TextColorGuide';
-import PhraseGuide from './components/PhraseGuide';
 import PngGuide from './components/PngGuide';
 import TemplateGuide from './components/TemplateGuide';
 import FullGuide from './components/FullGuide';
 import Chatbot from './components/Chatbot';
 import BannerCopyGenerator from './components/BannerCopyGenerator';
 import BannerCopyGenerator2 from './components/BannerCopyGenerator2';
+import SearchBannerGenerator from './components/SearchBannerGenerator';
+import SearchBannerGeneratorNoImage from './components/SearchBannerGeneratorNoImage';
+import BannerColorChecker from './components/BannerColorChecker';
+import SplashHelper from './components/SplashHelper';
 import FooterNav from './components/FooterNav';
 
 export type MenuItem = 
@@ -20,7 +23,11 @@ export type MenuItem =
   | 'template'
   | 'full-guide'
   | 'banner-image-phrase'
-  | 'banner-image-phrase-v2';
+  | 'banner-image-phrase-v2'
+  | 'search-banner'
+  | 'banner-color-checker'
+  | 'search-banner-no-image'
+  | 'splash-helper';
 
 function App() {
   const [currentMenu, setCurrentMenu] = useState<MenuItem>('main');
@@ -37,6 +44,9 @@ function App() {
     case 'png':
     case 'template':
     case 'full-guide':
+    case 'search-banner':
+    case 'search-banner-no-image':
+    case 'banner-color-checker':
       onBack = goHome;
       break;
     case 'text-color':
@@ -93,6 +103,14 @@ function App() {
         return <BannerCopyGenerator onHome={goHome} />;
       case 'banner-image-phrase-v2':
         return <BannerCopyGenerator2 onHome={goHome} onBack={goHome} />;
+      case 'search-banner':
+        return <SearchBannerGenerator onHome={goHome} onBack={goHome} />;
+      case 'search-banner-no-image':
+        return <SearchBannerGeneratorNoImage onHome={goHome} onBack={goHome} />;
+      case 'banner-color-checker':
+        return <BannerColorChecker onHome={goHome} onBack={goHome} />;
+      case 'splash-helper':
+        return <SplashHelper onHome={goHome} onBack={goHome} />;
       default:
         return <MainMenu onMenuSelect={handleMenuSelect} />;
     }

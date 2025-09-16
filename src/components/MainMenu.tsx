@@ -48,6 +48,24 @@ const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
       title: '전체 가이드 한눈에 보기 (작업중)',
       description: '배너 제작에 필요한 모든 정보를 한 번에 확인하세요',
       icon: '📚'
+    },
+    {
+      id: 'search-banner' as MenuItem,
+      title: '검색 띠배너 생성',
+      description: '이미지 업로드로 자동 배경색 추출 + 텍스트 입력 + JPG 다운로드',
+      icon: '🔍'
+    },
+    {
+      id: 'banner-color-checker' as MenuItem,
+      title: '배너 컬러 확인',
+      description: '배너 이미지 색상 분석 + 텍스트 가독성 테스트 + 접근성 검사',
+      icon: '🎨'
+    },
+    {
+      id: 'splash-helper' as MenuItem,
+      title: '스플래시 도우미',
+      description: '이미지 업로드 후 Safe Zone 적합 여부 확인',
+      icon: '🖼️'
     }
   ];
 

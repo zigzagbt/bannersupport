@@ -741,15 +741,12 @@ const BannerCopyGenerator2: React.FC<BannerCopyGeneratorProps> = ({ onHome, onBa
                 <span style={{ color: oppositeColorHex }}>{text2}</span>
             </p>
             <div style={{
-                background: '#fff',
-                opacity: 0.8,
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                color: '#334155',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                color: '#374151'
             }}>
                 <div style={{
                     fontWeight: 500
