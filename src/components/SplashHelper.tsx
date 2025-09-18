@@ -48,6 +48,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [pickedColor, setPickedColor] = useState<string>('rgba(0,0,0,0)');
   const [eyedropperMode, setEyedropperMode] = useState<boolean>(false);
   const [showGuides, setShowGuides] = useState<boolean>(true);
+  const [recommendedTextColor, setRecommendedTextColor] = useState<string>('#000000');
 
   const toRgbaWithAlpha = (input: string, alpha: number) => {
     if (input.startsWith('rgba')) {
@@ -63,6 +64,23 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
+  // 배경색에 따른 텍스트 색상 추천 함수
+  const getRecommendedTextColor = useCallback((backgroundColor: string) => {
+    // RGB 값을 추출
+    const rgbMatch = backgroundColor.match(/\d+/g);
+    if (!rgbMatch || rgbMatch.length < 3) return '#000000';
+    
+    const r = parseInt(rgbMatch[0]);
+    const g = parseInt(rgbMatch[1]);
+    const b = parseInt(rgbMatch[2]);
+    
+    // 밝기 계산 (0-255)
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    
+    // 밝기가 128보다 크면 검은색, 작으면 흰색 추천
+    return brightness > 128 ? '#000000' : '#ffffff';
+  }, []);
+
   const computeDrawRect = useCallback(() => {
     if (!naturalSize) return null;
     if (mode === 'fit') {
@@ -75,6 +93,57 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     }
     return { dx: pan.x, dy: pan.y, dw: naturalSize.w * scale, dh: naturalSize.h * scale };
   }, [FRAME_W, FRAME_H, mode, naturalSize, pan.x, pan.y, scale]);
+
+  // 실시간으로 텍스트 컬러 추천 업데이트
+  const updateTextColorRecommendation = useCallback(() => {
+    if (!imageUrl || !naturalSize) return;
+    
+    const tmp = document.createElement('canvas');
+    tmp.width = FRAME_W;
+    tmp.height = FRAME_H;
+    const tctx = tmp.getContext('2d');
+    if (!tctx) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      tctx.imageSmoothingQuality = 'high';
+      tctx.clearRect(0, 0, FRAME_W, FRAME_H);
+      
+      const imgRect = computeDrawRect();
+      if (!imgRect) return;
+      
+      tctx.drawImage(img, 0, 0, naturalSize.w, naturalSize.h, imgRect.dx, imgRect.dy, imgRect.dw, imgRect.dh);
+      
+      // y0~160 영역의 평균 배경색 계산하여 텍스트 색상 추천
+      const sampleHeight = Math.min(160, FRAME_H);
+      const sampleData = tctx.getImageData(0, 0, FRAME_W, sampleHeight).data;
+      let totalR = 0, totalG = 0, totalB = 0, pixelCount = 0;
+      
+      for (let i = 0; i < sampleData.length; i += 4) {
+        totalR += sampleData[i];
+        totalG += sampleData[i + 1];
+        totalB += sampleData[i + 2];
+        pixelCount++;
+      }
+      
+      if (pixelCount > 0) {
+        const avgR = Math.round(totalR / pixelCount);
+        const avgG = Math.round(totalG / pixelCount);
+        const avgB = Math.round(totalB / pixelCount);
+        const avgColor = `rgba(${avgR}, ${avgG}, ${avgB}, 1)`;
+        const recommendedColor = getRecommendedTextColor(avgColor);
+        setRecommendedTextColor(recommendedColor);
+      }
+    };
+    img.src = imageUrl;
+  }, [imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, getRecommendedTextColor]);
+
+  // 이미지 위치나 크기가 변경될 때마다 텍스트 컬러 추천 업데이트
+  useEffect(() => {
+    if (imageUrl && naturalSize) {
+      updateTextColorRecommendation();
+    }
+  }, [imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation]);
 
 
   const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -111,10 +180,13 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       const data = tctx.getImageData(x, y, 1, 1).data;
       const color = `rgba(${data[0]}, ${data[1]}, ${data[2]}, 1)`;
       setPickedColor(color);
+      
+      // 텍스트 컬러 추천 업데이트
+      updateTextColorRecommendation();
       setEyedropperMode(false);
     };
     img.src = imageUrl;
-  }, [eyedropperMode, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H]);
+  }, [eyedropperMode, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, updateTextColorRecommendation]);
 
   
 
@@ -209,6 +281,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     setNaturalSize(null);
     setPickedColor('rgba(0,0,0,0)');
     setEyedropperMode(false);
+    setRecommendedTextColor('#000000');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -388,6 +461,37 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                     />
                   )}
                   
+                  {/* 테스트 문구 표시 */}
+                  {imageUrl && (
+                    <div
+                      style={{
+                        pointerEvents: 'none',
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: 20,
+                        height: 40,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: recommendedTextColor,
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          padding: '4px 12px',
+                          borderRadius: 6,
+                          lineHeight: '1.2'
+                        }}
+                      >
+                        텍스트 컬러 추천<br/>(컬러확인용 가이드 위치와 상관 없음)
+                      </div>
+                    </div>
+                  )}
+
                   {/* 사진 가이드선 (y=160px) */}
                   {showGuides && (
                     <>
