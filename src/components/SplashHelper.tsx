@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Header from './Header';
 import FooterNav from './FooterNav';
 
 interface SplashHelperProps {
@@ -45,10 +44,19 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
   // Gradient overlay state
   const [gradientEnabled, setGradientEnabled] = useState<boolean>(true);
-  const [pickedColor, setPickedColor] = useState<string>('rgba(0,0,0,0)');
+  // Gradient configuration
+  type GradientMode = 'auto' | 'black' | 'white' | 'custom';
+  const [gradientMode, setGradientMode] = useState<GradientMode>('auto');
+  const [gradientAlpha, setGradientAlpha] = useState<number>(0.4);
+  const [pickedColor, setPickedColor] = useState<string>('rgba(0,0,0,0)'); // used when custom
   const [eyedropperMode, setEyedropperMode] = useState<boolean>(false);
   const [showGuides, setShowGuides] = useState<boolean>(true);
   const [recommendedTextColor, setRecommendedTextColor] = useState<string>('#000000');
+  const [showTextRecommendation, setShowTextRecommendation] = useState<boolean>(true);
+  const [recommendedOverlay, setRecommendedOverlay] = useState<'black' | 'white'>('black');
+
+  // Human readable label for recommended text color
+  const recommendedTextLabel = recommendedTextColor === '#000000' ? '블랙' : '화이트';
 
   const toRgbaWithAlpha = (input: string, alpha: number) => {
     if (input.startsWith('rgba')) {
@@ -59,10 +67,19 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       const nums = input.match(/\d+\.\d+|\d+/g);
       if (nums && nums.length >= 3) return `rgba(${nums[0]}, ${nums[1]}, ${nums[2]}, ${alpha})`;
     }
+    if (input.startsWith('#')) {
+      const hex = input.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
     return input;
   };
 
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  // Color helpers removed; only black/white recommendation remains
 
   // 배경색에 따른 텍스트 색상 추천 함수
   const getRecommendedTextColor = useCallback((backgroundColor: string) => {
@@ -96,6 +113,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
   // 실시간으로 텍스트 컬러 추천 업데이트
   const updateTextColorRecommendation = useCallback(() => {
+    if (!showTextRecommendation) return;
     if (!imageUrl || !naturalSize) return;
     
     const tmp = document.createElement('canvas');
@@ -133,17 +151,28 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
         const avgColor = `rgba(${avgR}, ${avgG}, ${avgB}, 1)`;
         const recommendedColor = getRecommendedTextColor(avgColor);
         setRecommendedTextColor(recommendedColor);
+        // Recommend overlay: pick black on bright bg, white on dark bg
+        const overlayTone = recommendedColor === '#000000' ? 'white' : 'black';
+        setRecommendedOverlay(overlayTone);
+        // Only tone recommendation kept (black/white)
       }
     };
     img.src = imageUrl;
-  }, [imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, getRecommendedTextColor]);
+  }, [showTextRecommendation, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, getRecommendedTextColor]);
+
+  // When switching to black/white presets, make opacity a bit more transparent by default
+  useEffect(() => {
+    if (gradientMode === 'black' || gradientMode === 'white') {
+      if (gradientAlpha > 0.6) setGradientAlpha(0.6);
+    }
+  }, [gradientMode]);
 
   // 이미지 위치나 크기가 변경될 때마다 텍스트 컬러 추천 업데이트
   useEffect(() => {
-    if (imageUrl && naturalSize) {
+    if (showTextRecommendation && imageUrl && naturalSize) {
       updateTextColorRecommendation();
     }
-  }, [imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation]);
+  }, [showTextRecommendation, imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation]);
 
 
   const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -327,7 +356,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     ctx.drawImage(img, 0, 0, naturalSize.w, naturalSize.h, dx, dy, dw, dh);
 
     // draw gradient overlay with design-specified values
-    if (gradientEnabled && pickedColor !== 'rgba(0,0,0,0)') {
+    if (gradientEnabled) {
       // Gradient area: 15% + 155px (5px longer)
       const baseHeight = Math.round(TARGET_H * 0.15); // 15% of canvas height
       const extraHeight = Math.round(155 * (TARGET_H / FRAME_H)); // 155px scaled to target size (5px longer)
@@ -335,9 +364,13 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       const gradHeight = baseHeight + extraHeight; // 15% + 155px
       
       const grad = ctx.createLinearGradient(0, 0, 0, gradHeight);
-      const base = pickedColor;
-      const colorTop = toRgbaWithAlpha(base, 1);
-      const colorTransparent = toRgbaWithAlpha(base, 0);
+      let baseColor: string;
+      if (gradientMode === 'black') baseColor = '#000000';
+      else if (gradientMode === 'white') baseColor = '#ffffff';
+      else if (gradientMode === 'auto') baseColor = recommendedOverlay === 'black' ? '#000000' : '#ffffff';
+      else baseColor = pickedColor === 'rgba(0,0,0,0)' ? '#000000' : pickedColor;
+      const colorTop = toRgbaWithAlpha(baseColor, gradientAlpha);
+      const colorTransparent = toRgbaWithAlpha(baseColor, 0);
       
       // Apply design gradient stops: 65.34% where it becomes transparent
       grad.addColorStop(0, colorTop);
@@ -358,8 +391,6 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   // 실제 비율과 안전 영역은 이후 사용자가 구체 제원 제공 시 조정 예정.
   return (
     <div className="container">
-      <Header />
-
       <div className="card text-center mb-8">
         <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
           📱 스플래시 도우미
@@ -382,8 +413,8 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
               backgroundColor: '#f8fafc'
             }}
             onClick={() => { if (!imageUrl) fileInputRef.current?.click(); }}
-            onDragOver={(e) => { if (!imageUrl) onDragOver(e); }}
-            onDrop={(e) => { if (!imageUrl) onDrop(e); }}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           >
             {imageUrl && naturalSize ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -432,7 +463,15 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                       height: naturalSize.h
                     }}
                   />
-                  {gradientEnabled && pickedColor !== 'rgba(0,0,0,0)' && (
+                  {gradientEnabled && (() => {
+                    let baseColor: string;
+                    if (gradientMode === 'black') baseColor = '#000000';
+                    else if (gradientMode === 'white') baseColor = '#ffffff';
+                    else if (gradientMode === 'auto') baseColor = recommendedOverlay === 'black' ? '#000000' : '#ffffff';
+                    else baseColor = pickedColor === 'rgba(0,0,0,0)' ? '#000000' : pickedColor;
+                    const opaque = toRgbaWithAlpha(baseColor, gradientAlpha);
+                    const transparent = toRgbaWithAlpha(baseColor, 0);
+                    return (
                     <div
                       style={{
                         pointerEvents: 'none',
@@ -441,10 +480,11 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                         right: 0,
                         top: 0, // Start from top (y=0)
                         height: Math.round(FRAME_H * 0.15) + 155, // 15% + 155px (5px longer)
-                        background: `linear-gradient(180deg, ${toRgbaWithAlpha(pickedColor, 1)} 0%, ${toRgbaWithAlpha(pickedColor, 1)} 65.34%, ${toRgbaWithAlpha(pickedColor, 0)} 100%)`
+                        background: `linear-gradient(180deg, ${opaque} 0%, ${opaque} 65.34%, ${transparent} 100%)`
                       }}
                     />
-                  )}
+                    );
+                  })()}
                   {/* Safe Zone overlay */}
                   {showGuides && (
                     <div
@@ -462,14 +502,14 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   )}
                   
                   {/* 테스트 문구 표시 */}
-                  {imageUrl && (
+                  {imageUrl && showTextRecommendation && (
                     <div
                       style={{
                         pointerEvents: 'none',
                         position: 'absolute',
                         left: 0,
                         right: 0,
-                        top: 20,
+                        top: 90,
                         height: 40,
                         display: 'flex',
                         alignItems: 'center',
@@ -484,10 +524,12 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                           textAlign: 'center',
                           padding: '4px 12px',
                           borderRadius: 6,
-                          lineHeight: '1.2'
+                          lineHeight: '1.3'
                         }}
                       >
-                        텍스트 컬러 추천<br/>(컬러확인용 가이드 위치와 상관 없음)
+                        스플래시 텍스트 컬러를
+                        <br/>
+                        {`{${recommendedTextLabel}} 으로 설정해 주세요`}
                       </div>
                     </div>
                   )}
@@ -495,37 +537,6 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   {/* 사진 가이드선 (y=160px) */}
                   {showGuides && (
                     <>
-                      {/* 가이드선 위쪽에 문구 표시 */}
-                      <div
-                        style={{
-                          pointerEvents: 'none',
-                          position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          top: 90,
-                          height: 20,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <div
-                          style={{
-                            background: 'rgba(0, 0, 0, 0.8)',
-                            color: 'white',
-                            padding: '4px 12px',
-                            borderRadius: 6,
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            textAlign: 'center',
-                            lineHeight: '1.2'
-                          }}
-                        >
-                          사진 상단이 짧을 경우, 가이드선 이상으로 위치해주세요.<br/>
-                          그래야 배경 그라데이션이 자연스럽게 연결됩니다.
-                        </div>
-                      </div>
-                      
                       {/* 사진 가이드선 */}
                       <div
                         style={{
@@ -581,27 +592,52 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
                     <input type="checkbox" checked={gradientEnabled} onChange={(e) => setGradientEnabled(e.target.checked)} /> 상단 그라데이션
                   </label>
+                  {gradientEnabled && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
+                      <span style={{ color: '#64748b', fontSize: 12 }}>프리셋</span>
+                      <button className="btn" onClick={() => setGradientMode('auto')} style={{ padding: '6px 10px', background: gradientMode === 'auto' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'auto' ? '#fff' : '#111', borderRadius: 6 }}>Auto</button>
+                      <button className="btn" onClick={() => setGradientMode('black')} style={{ padding: '6px 10px', background: gradientMode === 'black' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'black' ? '#fff' : '#111', borderRadius: 6 }}>Black</button>
+                      <button className="btn" onClick={() => setGradientMode('white')} style={{ padding: '6px 10px', background: gradientMode === 'white' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'white' ? '#fff' : '#111', borderRadius: 6 }}>White</button>
+                      <button className="btn" onClick={() => setGradientMode('custom')} style={{ padding: '6px 10px', background: gradientMode === 'custom' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'custom' ? '#fff' : '#111', borderRadius: 6 }}>Custom</button>
+                    </div>
+                  )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
                     <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /> 가이드 표시
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
+                    <input type="checkbox" checked={showTextRecommendation} onChange={(e) => setShowTextRecommendation(e.target.checked)} /> 텍스트 컬러 추천
+                  </label>
                   {gradientEnabled && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
-                      <button
-                        className="btn"
-                        onClick={() => setEyedropperMode(!eyedropperMode)}
-                        style={{ 
-                          padding: '6px 12px', 
-                          background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
-                          color: eyedropperMode ? '#fff' : '#111',
-                          fontSize: '12px',
-                          borderRadius: 4,
-                          fontWeight: 'bold'
-                        }}
-                        title="스포이드로 색상 선택"
-                      >
-                        {eyedropperMode ? '색상선택 중...' : '색상선택'}
-                      </button>
-                      {pickedColor !== 'rgba(0,0,0,0)' && (
+                      {gradientMode === 'custom' && (
+                        <>
+                          <input
+                            type="color"
+                            value={(pickedColor.startsWith('#') ? pickedColor : '#000000')}
+                            onChange={(e) => setPickedColor(e.target.value)}
+                            title="그라데이션 색상"
+                            style={{ width: 28, height: 22, padding: 0, border: '1px solid #e5e7eb', borderRadius: 4 }}
+                          />
+                          <span style={{ color: '#64748b', fontSize: 12 }}>투명도</span>
+                          <input type="range" min={0} max={1} step={0.05} value={gradientAlpha} onChange={(e) => setGradientAlpha(parseFloat(e.target.value))} />
+                          <button
+                            className="btn"
+                            onClick={() => setEyedropperMode(!eyedropperMode)}
+                            style={{ 
+                              padding: '6px 12px', 
+                              background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
+                              color: eyedropperMode ? '#fff' : '#111',
+                              fontSize: '12px',
+                              borderRadius: 4,
+                              fontWeight: 'bold'
+                            }}
+                            title="스포이드로 색상 선택"
+                          >
+                            {eyedropperMode ? '색상선택 중...' : '스포이드'}
+                          </button>
+                        </>
+                      )}
+                      {gradientMode === 'custom' && pickedColor !== 'rgba(0,0,0,0)' && (
                         <div
                           style={{ 
                             width: 22, 
