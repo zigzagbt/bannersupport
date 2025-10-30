@@ -54,6 +54,8 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [recommendedTextColor, setRecommendedTextColor] = useState<string>('#000000');
   const [showTextRecommendation, setShowTextRecommendation] = useState<boolean>(true);
   const [recommendedOverlay, setRecommendedOverlay] = useState<'black' | 'white'>('black');
+  // Contrast state
+  
 
   // Human readable label for recommended text color
   const recommendedTextLabel = recommendedTextColor === '#000000' ? '블랙' : '화이트';
@@ -76,8 +78,38 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     }
     return input;
   };
+  // Reset UI/state when a new image is selected
+  const resetForNewImage = useCallback(() => {
+    setPickedColor('rgba(0,0,0,0)');
+    setEyedropperMode(false);
+    setGradientMode('auto');
+    setGradientAlpha(0.4);
+    setRecommendedTextColor('#000000');
+    setRecommendedOverlay('black');
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+    setNaturalSize(null);
+  }, []);
+
 
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  // WCAG contrast helpers
+  const srgbToLinear = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const relativeLuminance = (r: number, g: number, b: number) => {
+    const R = srgbToLinear(r);
+    const G = srgbToLinear(g);
+    const B = srgbToLinear(b);
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  };
+  const contrastRatio = (l1: number, l2: number) => {
+    const L1 = Math.max(l1, l2);
+    const L2 = Math.min(l1, l2);
+    return (L1 + 0.05) / (L2 + 0.05);
+  };
 
   // Color helpers removed; only black/white recommendation remains
 
@@ -131,6 +163,25 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       if (!imgRect) return;
       
       tctx.drawImage(img, 0, 0, naturalSize.w, naturalSize.h, imgRect.dx, imgRect.dy, imgRect.dw, imgRect.dh);
+
+      // Apply gradient overlay onto the temp canvas if enabled so contrast reflects current background
+      if (gradientEnabled) {
+        let baseColor: string;
+        if (gradientMode === 'black') baseColor = '#000000';
+        else if (gradientMode === 'white') baseColor = '#ffffff';
+        else if (gradientMode === 'auto') baseColor = (recommendedOverlay === 'black' ? '#000000' : '#ffffff');
+        else baseColor = pickedColor === 'rgba(0,0,0,0)' ? '#000000' : pickedColor;
+
+        const gradHeight = Math.round(FRAME_H * 0.15) + 155; // match preview
+        const grad = tctx.createLinearGradient(0, 0, 0, gradHeight);
+        const colorTop = toRgbaWithAlpha(baseColor, gradientAlpha);
+        const colorTransparent = toRgbaWithAlpha(baseColor, 0);
+        grad.addColorStop(0, colorTop);
+        grad.addColorStop(0.6534, colorTop);
+        grad.addColorStop(1, colorTransparent);
+        tctx.fillStyle = grad as any;
+        tctx.fillRect(0, 0, FRAME_W, gradHeight);
+      }
       
       // y0~160 영역의 평균 배경색 계산하여 텍스트 색상 추천
       const sampleHeight = Math.min(160, FRAME_H);
@@ -148,22 +199,29 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
         const avgR = Math.round(totalR / pixelCount);
         const avgG = Math.round(totalG / pixelCount);
         const avgB = Math.round(totalB / pixelCount);
-        const avgColor = `rgba(${avgR}, ${avgG}, ${avgB}, 1)`;
-        const recommendedColor = getRecommendedTextColor(avgColor);
+        // WCAG-based contrast to black/white
+        const L = relativeLuminance(avgR, avgG, avgB);
+        const cBlack = contrastRatio(L, 0);
+        const cWhite = contrastRatio(L, 1);
+        // Prefer higher; if close, bias to white
+        // Ambiguous zone tolerance: raise epsilon to prefer white text a bit more
+        const epsilon = 0.6;
+        let recommendedColor = cWhite >= cBlack - epsilon ? '#ffffff' : '#000000';
+        if (cBlack > cWhite + epsilon) recommendedColor = '#000000';
         setRecommendedTextColor(recommendedColor);
-        // Recommend overlay: pick black on bright bg, white on dark bg
         const overlayTone = recommendedColor === '#000000' ? 'white' : 'black';
         setRecommendedOverlay(overlayTone);
-        // Only tone recommendation kept (black/white)
+        // Contrast value no longer displayed; UI hints removed
       }
     };
     img.src = imageUrl;
-  }, [showTextRecommendation, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, getRecommendedTextColor]);
+  }, [showTextRecommendation, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, getRecommendedTextColor, gradientEnabled, gradientMode, pickedColor, gradientAlpha, recommendedOverlay]);
 
-  // When switching to black/white presets, make opacity a bit more transparent by default
+  // When switching presets (Auto/Black/White), ALWAYS reset opacity to preset default (0.4).
+  // Custom inherits the current preset opacity.
   useEffect(() => {
-    if (gradientMode === 'black' || gradientMode === 'white') {
-      if (gradientAlpha > 0.6) setGradientAlpha(0.6);
+    if (gradientMode === 'auto' || gradientMode === 'black' || gradientMode === 'white') {
+      setGradientAlpha(0.4);
     }
   }, [gradientMode]);
 
@@ -172,7 +230,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     if (showTextRecommendation && imageUrl && naturalSize) {
       updateTextColorRecommendation();
     }
-  }, [showTextRecommendation, imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation]);
+  }, [showTextRecommendation, imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation, gradientEnabled, gradientMode, pickedColor, gradientAlpha, recommendedOverlay]);
 
 
   const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -245,7 +303,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setImageUrl(ev.target?.result as string);
+    reader.onload = (ev) => {
+      resetForNewImage();
+      setImageUrl(ev.target?.result as string);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -259,7 +320,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setImageUrl(ev.target?.result as string);
+    reader.onload = (ev) => {
+      resetForNewImage();
+      setImageUrl(ev.target?.result as string);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -322,8 +386,8 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Draw background (optional gray for empty areas)
-    ctx.fillStyle = '#000';
+    // Draw background in vivid red to reveal empty areas/misplacement clearly
+    ctx.fillStyle = '#ff0000';
     ctx.fillRect(0, 0, TARGET_W, TARGET_H);
 
     // Map preview transforms to canvas space
@@ -426,7 +490,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                     borderRadius: 16,
                     overflow: 'hidden',
                     position: 'relative',
-                    background: '#e5e7eb',
+                    background: '#ff0000',
                     boxShadow: 'inset 0 0 0 1px #e2e8f0',
                     touchAction: 'none',
                     cursor: eyedropperMode ? 'crosshair' : (mode === 'crop' ? 'grab' : 'default')
@@ -595,7 +659,11 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   {gradientEnabled && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
                       <span style={{ color: '#64748b', fontSize: 12 }}>프리셋</span>
-                      <button className="btn" onClick={() => setGradientMode('auto')} style={{ padding: '6px 10px', background: gradientMode === 'auto' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'auto' ? '#fff' : '#111', borderRadius: 6 }}>Auto</button>
+                      <button
+                        className="btn"
+                        onClick={() => setGradientMode('auto')}
+                        style={{ padding: '6px 10px', background: gradientMode === 'auto' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'auto' ? '#fff' : '#111', borderRadius: 6 }}
+                      >Auto</button>
                       <button className="btn" onClick={() => setGradientMode('black')} style={{ padding: '6px 10px', background: gradientMode === 'black' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'black' ? '#fff' : '#111', borderRadius: 6 }}>Black</button>
                       <button className="btn" onClick={() => setGradientMode('white')} style={{ padding: '6px 10px', background: gradientMode === 'white' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'white' ? '#fff' : '#111', borderRadius: 6 }}>White</button>
                       <button className="btn" onClick={() => setGradientMode('custom')} style={{ padding: '6px 10px', background: gradientMode === 'custom' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'custom' ? '#fff' : '#111', borderRadius: 6 }}>Custom</button>
@@ -651,6 +719,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                       )}
                     </div>
                   )}
+       
                   {mode === 'crop' && (
                     <>
                       <label style={{ color: '#64748b', fontSize: 12 }}>확대/축소</label>
