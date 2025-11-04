@@ -12,6 +12,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const guideCheckboxRef = useRef<HTMLInputElement>(null);
 
   // Pan/Zoom state (crop by moving/scaling image under fixed frame)
   const [scale, setScale] = useState<number>(1);
@@ -50,6 +51,8 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [gradientAlpha, setGradientAlpha] = useState<number>(0.4);
   const [pickedColor, setPickedColor] = useState<string>('rgba(0,0,0,0)'); // used when custom
   const [eyedropperMode, setEyedropperMode] = useState<boolean>(false);
+  const [previewColor, setPreviewColor] = useState<string | null>(null);
+  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
   const [showGuides, setShowGuides] = useState<boolean>(true);
   const [recommendedTextColor, setRecommendedTextColor] = useState<string>('#000000');
   const [showTextRecommendation, setShowTextRecommendation] = useState<boolean>(true);
@@ -225,6 +228,21 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     }
   }, [gradientMode]);
 
+  // When switching to custom mode, automatically turn off guides
+  // When switching away from custom mode, automatically turn guides back on
+  useEffect(() => {
+    if (gradientMode === 'custom') {
+      setShowGuides(false);
+      setShowTextRecommendation(false);
+      setEyedropperMode(true); // 커스텀 모드 선택 시 기본값은 스포이드 선택
+    } else {
+      // 커스텀 모드가 아닐 때는 가이드 다시 켜기 및 스포이드 모드 끄기
+      setShowGuides(true);
+      setShowTextRecommendation(true);
+      setEyedropperMode(false); // 커스텀 모드가 아닐 때는 스포이드 모드 비활성화
+    }
+  }, [gradientMode]);
+
   // 이미지 위치나 크기가 변경될 때마다 텍스트 컬러 추천 업데이트
   useEffect(() => {
     if (showTextRecommendation && imageUrl && naturalSize) {
@@ -232,11 +250,22 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     }
   }, [showTextRecommendation, imageUrl, naturalSize, pan.x, pan.y, scale, mode, updateTextColorRecommendation, gradientEnabled, gradientMode, pickedColor, gradientAlpha, recommendedOverlay]);
 
+  // 가이드 체크박스 indeterminate 상태 설정
+  useEffect(() => {
+    if (guideCheckboxRef.current) {
+      const hasAny = showGuides || showTextRecommendation;
+      const hasAll = showGuides && showTextRecommendation;
+      guideCheckboxRef.current.indeterminate = hasAny && !hasAll;
+    }
+  }, [showGuides, showTextRecommendation]);
 
-  const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!eyedropperMode || !imageUrl || !naturalSize) return;
-    e.preventDefault();
-    e.stopPropagation();
+
+  const handleImageMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!eyedropperMode || !imageUrl || !naturalSize || gradientMode !== 'custom') {
+      setPreviewColor(null);
+      setPreviewPosition(null);
+      return;
+    }
     
     const rect = frameRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -249,7 +278,11 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     if (!imgRect) return;
     
     if (x < imgRect.dx || x > imgRect.dx + imgRect.dw || 
-        y < imgRect.dy || y > imgRect.dy + imgRect.dh) return;
+        y < imgRect.dy || y > imgRect.dy + imgRect.dh) {
+      setPreviewColor(null);
+      setPreviewPosition(null);
+      return;
+    }
     
     // 캔버스에서 색상 추출
     const tmp = document.createElement('canvas');
@@ -266,14 +299,23 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       
       const data = tctx.getImageData(x, y, 1, 1).data;
       const color = `rgba(${data[0]}, ${data[1]}, ${data[2]}, 1)`;
-      setPickedColor(color);
-      
-      // 텍스트 컬러 추천 업데이트
-      updateTextColorRecommendation();
-      setEyedropperMode(false);
+      setPreviewColor(color);
+      setPreviewPosition({ x: e.clientX, y: e.clientY });
     };
     img.src = imageUrl;
-  }, [eyedropperMode, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, updateTextColorRecommendation]);
+  }, [eyedropperMode, imageUrl, naturalSize, computeDrawRect, FRAME_W, FRAME_H, gradientMode]);
+
+  const handleImageClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!eyedropperMode || !imageUrl || !naturalSize || gradientMode !== 'custom') return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (previewColor) {
+      setPickedColor(previewColor);
+      updateTextColorRecommendation();
+      // 스포이드 모드는 유지하여 계속 색상 선택 가능
+    }
+  }, [eyedropperMode, imageUrl, naturalSize, previewColor, updateTextColorRecommendation, gradientMode]);
 
   
 
@@ -304,10 +346,19 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      resetForNewImage();
-      setImageUrl(ev.target?.result as string);
+      const newImageUrl = ev.target?.result as string;
+      // 같은 이미지를 다시 올려도 로드되도록 먼저 null로 설정
+      setImageUrl(null);
+      setNaturalSize(null);
+      // 다음 틱에서 새 이미지 URL 설정
+      setTimeout(() => {
+        resetForNewImage();
+        setImageUrl(newImageUrl);
+      }, 0);
     };
     reader.readAsDataURL(file);
+    // 같은 파일을 다시 선택할 수 있도록 input value 초기화
+    e.target.value = '';
   };
 
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -321,8 +372,15 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      resetForNewImage();
-      setImageUrl(ev.target?.result as string);
+      const newImageUrl = ev.target?.result as string;
+      // 같은 이미지를 다시 올려도 로드되도록 먼저 null로 설정
+      setImageUrl(null);
+      setNaturalSize(null);
+      // 다음 틱에서 새 이미지 URL 설정
+      setTimeout(() => {
+        resetForNewImage();
+        setImageUrl(newImageUrl);
+      }, 0);
     };
     reader.readAsDataURL(file);
   };
@@ -333,7 +391,7 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   };
 
   const moveDrag = (clientX: number, clientY: number) => {
-    if (!dragging || !dragStartRef.current) return;
+    if (!dragging || !dragStartRef.current || !naturalSize) return;
     const newX = clientX - dragStartRef.current.x;
     const newY = clientY - dragStartRef.current.y;
     
@@ -341,31 +399,46 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   };
 
   const endDrag = () => {
+    if (!dragging || !naturalSize) {
+      setDragging(false);
+      dragStartRef.current = null;
+      return;
+    }
+    
+    // 스냅 기능: 이미지 좌우/하단 끝이 경계에 가까우면 자동 정렬
+    const SNAP_THRESHOLD = 15; // 좌우 스냅 임계값 (px)
+    const SNAP_THRESHOLD_BOTTOM = 10; // 하단 스냅 임계값 (px)
+    const imgWidth = naturalSize.w * scale;
+    const imgHeight = naturalSize.h * scale;
+    const imgLeft = pan.x;
+    const imgRight = pan.x + imgWidth;
+    const imgBottom = pan.y + imgHeight;
+    
+    let snappedX = pan.x;
+    let snappedY = pan.y;
+    
+    // 좌측 스냅: 이미지 왼쪽 끝이 x=0에 가까우면 스냅
+    if (Math.abs(imgLeft) < SNAP_THRESHOLD) {
+      snappedX = 0;
+    }
+    // 우측 스냅: 이미지 오른쪽 끝이 FRAME_W에 가까우면 스냅
+    else if (Math.abs(imgRight - FRAME_W) < SNAP_THRESHOLD) {
+      snappedX = FRAME_W - imgWidth;
+    }
+    
+    // 하단 스냅: 이미지 아래쪽 끝이 FRAME_H에 가까우면 스냅
+    if (Math.abs(imgBottom - FRAME_H) < SNAP_THRESHOLD_BOTTOM) {
+      snappedY = FRAME_H - imgHeight;
+    }
+    
+    if (snappedX !== pan.x || snappedY !== pan.y) {
+      setPan({ x: snappedX, y: snappedY });
+    }
+    
     setDragging(false);
     dragStartRef.current = null;
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (!naturalSize || mode === 'fit') return;
-    e.preventDefault();
-    // Support both scroll and pinch-zoom (ctrlKey often set on mac pinch)
-    const direction = e.deltaY;
-    const factor = direction < 0 ? 1.1 : 0.9;
-    setScale((prev) => {
-      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, prev * factor));
-      if (newScale === prev) return prev;
-      // center-based zoom: keep frame center fixed
-      const cx = FRAME_W / 2;
-      const cy = FRAME_H / 2;
-      const ux = (cx - pan.x) / prev;
-      const uy = (cy - pan.y) / prev;
-      const newPanX = cx - ux * newScale;
-      const newPanY = cy - uy * newScale;
-      
-      setPan({ x: newPanX, y: newPanY });
-      return newScale;
-    });
-  };
 
   const resetAll = () => {
     setScale(1);
@@ -386,8 +459,8 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Draw background in vivid red to reveal empty areas/misplacement clearly
-    ctx.fillStyle = '#ff0000';
+    // Draw background in neon green to reveal empty areas/misplacement clearly
+    ctx.fillStyle = '#39ff14';
     ctx.fillRect(0, 0, TARGET_W, TARGET_H);
 
     // Map preview transforms to canvas space
@@ -466,7 +539,9 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
 
       <div className="grid">
         <div className="card">
-          <h3 style={{ marginBottom: '15px', color: '#1e293b' }}>이미지 업로드</h3>
+          {!imageUrl && (
+            <h3 style={{ marginBottom: '15px', color: '#1e293b' }}>이미지 업로드</h3>
+          )}
           <div
             style={{
               border: '2px dashed #cbd5e1',
@@ -474,37 +549,63 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
               padding: '20px',
               textAlign: 'center',
               cursor: imageUrl ? 'default' : 'pointer',
-              backgroundColor: '#f8fafc'
+              backgroundColor: '#f8fafc',
+              position: 'relative'
             }}
             onClick={() => { if (!imageUrl) fileInputRef.current?.click(); }}
             onDragOver={onDragOver}
             onDrop={onDrop}
           >
             {imageUrl && naturalSize ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <div
-                  ref={frameRef}
-                  style={{
-                    width: FRAME_W,
-                    height: FRAME_H,
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    background: '#ff0000',
-                    boxShadow: 'inset 0 0 0 1px #e2e8f0',
-                    touchAction: 'none',
-                    cursor: eyedropperMode ? 'crosshair' : (mode === 'crop' ? 'grab' : 'default')
-                  }}
-                  onMouseDown={(e) => { if (mode === 'crop' && !eyedropperMode) beginDrag(e.clientX, e.clientY); }}
-                  onMouseMove={(e) => { if (mode === 'crop' && !eyedropperMode) moveDrag(e.clientX, e.clientY); }}
-                  onMouseUp={endDrag}
-                  onMouseLeave={endDrag}
-                  onWheel={onWheel}
-                  onTouchStart={(e) => { if (mode === 'crop' && !eyedropperMode) beginDrag(e.touches[0].clientX, e.touches[0].clientY); }}
-                  onTouchMove={(e) => { if (mode === 'crop' && !eyedropperMode) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }}
-                  onTouchEnd={endDrag}
-                  onClick={handleImageClick}
-                >
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  {/* 이미지 교체 안내 */}
+                  <div style={{ 
+                    padding: '6px 12px', 
+                    background: '#f1f5f9', 
+                    borderRadius: 6, 
+                    fontSize: 12, 
+                    color: '#64748b',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    📁 이미지를 끌어다 놓으면 교체됩니다
+                  </div>
+                  <div
+                    ref={frameRef}
+                    style={{
+                      width: FRAME_W,
+                      height: FRAME_H,
+                      borderRadius: 16,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      background: '#39ff14',
+                      boxShadow: 'inset 0 0 0 1px #e2e8f0',
+                      touchAction: 'none',
+                      cursor: (eyedropperMode && gradientMode === 'custom')
+                        ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'%23000\'%3E%3Cpath d=\'M20.71 5.63l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12c.4-.4.4-1.03.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z\'/%3E%3C/svg%3E") 12 12, crosshair' 
+                        : (mode === 'crop' ? 'grab' : 'default')
+                    }}
+                    onMouseDown={(e) => { if (mode === 'crop' && !eyedropperMode) beginDrag(e.clientX, e.clientY); }}
+                    onMouseMove={(e) => { 
+                      if (eyedropperMode && gradientMode === 'custom') {
+                        handleImageMove(e);
+                      } else if (mode === 'crop') {
+                        moveDrag(e.clientX, e.clientY);
+                      }
+                    }}
+                    onMouseUp={endDrag}
+                    onMouseLeave={(e) => { 
+                      endDrag();
+                      if (eyedropperMode && gradientMode === 'custom') {
+                        setPreviewColor(null);
+                        setPreviewPosition(null);
+                      }
+                    }}
+                    onTouchStart={(e) => { if (mode === 'crop' && !eyedropperMode) beginDrag(e.touches[0].clientX, e.touches[0].clientY); }}
+                    onTouchMove={(e) => { if (mode === 'crop' && !eyedropperMode) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }}
+                    onTouchEnd={endDrag}
+                    onClick={handleImageClick}
+                  >
                   <img
                     src={imageUrl}
                     alt="splash"
@@ -632,167 +733,368 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                       </div>
                     </>
                   )}
+                  
+                  {/* 스포이드 색상 미리보기 */}
+                  {eyedropperMode && gradientMode === 'custom' && previewColor && previewPosition && (
+                    <div
+                      style={{
+                        position: 'fixed',
+                        left: previewPosition.x + 20,
+                        top: previewPosition.y - 40,
+                        background: '#fff',
+                        border: '2px solid #3b82f6',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 4,
+                          background: previewColor,
+                          border: '1px solid #e5e7eb',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>{previewColor}</span>
+                        <span style={{ fontSize: 10, color: '#64748b' }}>클릭하여 선택</span>
+                      </div>
+                    </div>
+                  )}
                   {/* 문구 고정 영역 (예시) */}
                   {/* 삭제 요청: 하단 반투명 박스 제거 */}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
-                    <label style={{ color: '#64748b', fontSize: 12 }}>표시 방식</label>
-                    <button
-                      className="btn"
-                      onClick={() => setMode('crop')}
-                      style={{ padding: '6px 10px', background: mode === 'crop' ? '#3b82f6' : '#e5e7eb', color: mode === 'crop' ? '#fff' : '#111', borderRadius: 6 }}
-                    >
-                      Crop
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => setMode('fit')}
-                      style={{ padding: '6px 10px', background: mode === 'fit' ? '#3b82f6' : '#e5e7eb', color: mode === 'fit' ? '#fff' : '#111', borderRadius: 6 }}
-                    >
-                      Fit
-                    </button>
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
-                    <input type="checkbox" checked={gradientEnabled} onChange={(e) => setGradientEnabled(e.target.checked)} /> 상단 그라데이션
-                  </label>
-                  {gradientEnabled && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
-                      <span style={{ color: '#64748b', fontSize: 12 }}>프리셋</span>
+                </div>
+                {/* 컨트롤 영역 - 그룹화된 레이아웃 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '44px 0 12px 0', flex: 1, minWidth: 300, maxWidth: 400 }}>
+                  {/* 첫 번째 줄: 이미지 조작 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4 }}>표시 방식</span>
                       <button
                         className="btn"
-                        onClick={() => setGradientMode('auto')}
-                        style={{ padding: '6px 10px', background: gradientMode === 'auto' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'auto' ? '#fff' : '#111', borderRadius: 6 }}
-                      >Auto</button>
-                      <button className="btn" onClick={() => setGradientMode('black')} style={{ padding: '6px 10px', background: gradientMode === 'black' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'black' ? '#fff' : '#111', borderRadius: 6 }}>Black</button>
-                      <button className="btn" onClick={() => setGradientMode('white')} style={{ padding: '6px 10px', background: gradientMode === 'white' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'white' ? '#fff' : '#111', borderRadius: 6 }}>White</button>
-                      <button className="btn" onClick={() => setGradientMode('custom')} style={{ padding: '6px 10px', background: gradientMode === 'custom' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'custom' ? '#fff' : '#111', borderRadius: 6 }}>Custom</button>
+                        onClick={() => setMode('crop')}
+                        style={{ padding: '6px 12px', background: mode === 'crop' ? '#3b82f6' : '#e5e7eb', color: mode === 'crop' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                      >
+                        Crop
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={() => setMode('fit')}
+                        style={{ padding: '6px 12px', background: mode === 'fit' ? '#3b82f6' : '#e5e7eb', color: mode === 'fit' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                      >
+                        Fit
+                      </button>
                     </div>
-                  )}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
-                    <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} /> 가이드 표시
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: 12, marginRight: 10 }}>
-                    <input type="checkbox" checked={showTextRecommendation} onChange={(e) => setShowTextRecommendation(e.target.checked)} /> 텍스트 컬러 추천
-                  </label>
-                  {gradientEnabled && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 10 }}>
-                      {gradientMode === 'custom' && (
-                        <>
-                          <input
-                            type="color"
-                            value={(pickedColor.startsWith('#') ? pickedColor : '#000000')}
-                            onChange={(e) => setPickedColor(e.target.value)}
-                            title="그라데이션 색상"
-                            style={{ width: 28, height: 22, padding: 0, border: '1px solid #e5e7eb', borderRadius: 4 }}
-                          />
-                          <span style={{ color: '#64748b', fontSize: 12 }}>투명도</span>
-                          <input type="range" min={0} max={1} step={0.05} value={gradientAlpha} onChange={(e) => setGradientAlpha(parseFloat(e.target.value))} />
-                          <button
-                            className="btn"
-                            onClick={() => setEyedropperMode(!eyedropperMode)}
-                            style={{ 
-                              padding: '6px 12px', 
-                              background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
-                              color: eyedropperMode ? '#fff' : '#111',
-                              fontSize: '12px',
-                              borderRadius: 4,
-                              fontWeight: 'bold'
-                            }}
-                            title="스포이드로 색상 선택"
-                          >
-                            {eyedropperMode ? '색상선택 중...' : '스포이드'}
-                          </button>
-                        </>
-                      )}
-                      {gradientMode === 'custom' && pickedColor !== 'rgba(0,0,0,0)' && (
-                        <div
-                          style={{ 
-                            width: 22, 
-                            height: 22, 
-                            borderRadius: 4, 
-                            border: '1px solid #e5e7eb', 
-                            background: pickedColor
-                          }}
-                          title="선택된 색상"
-                        />
-                      )}
-                    </div>
-                  )}
-       
-                  {mode === 'crop' && (
-                    <>
-                      <label style={{ color: '#64748b', fontSize: 12 }}>확대/축소</label>
-                      <input
-                        type="range"
-                        min={MIN_SCALE}
-                        max={MAX_SCALE}
-                        step={0.01}
-                        value={scale}
-                        onChange={(e) => {
-                          const next = parseFloat(e.target.value);
-                          if (!naturalSize) { setScale(next); return; }
+                    {mode === 'crop' && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4 }}>확대/축소</span>
+                        <button className="btn" style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => {
+                          if (!naturalSize) return;
+                          const next = Math.max(MIN_SCALE, scale / 1.1);
                           const prev = scale;
-                          const cx = FRAME_W / 2;
-                          const cy = FRAME_H / 2;
-                          const ux = (cx - pan.x) / prev;
-                          const uy = (cy - pan.y) / prev;
+                          const cx = FRAME_W / 2; const cy = FRAME_H / 2;
+                          const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
                           const newPanX = cx - ux * next;
                           const newPanY = cy - uy * next;
-                          
                           setPan({ x: newPanX, y: newPanY });
                           setScale(next);
-                        }}
-                      />
-                      <button className="btn" style={{ padding: '6px 10px' }} onClick={() => {
-                        if (!naturalSize) return;
-                        const next = Math.min(MAX_SCALE, scale * 1.1);
-                        const prev = scale;
-                        const cx = FRAME_W / 2; const cy = FRAME_H / 2;
-                        const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
-                        const newPanX = cx - ux * next;
-                        const newPanY = cy - uy * next;
-                        
-                        setPan({ x: newPanX, y: newPanY });
-                        setScale(next);
-                      }}>+</button>
-                      <button className="btn" style={{ padding: '6px 10px' }} onClick={() => {
-                        if (!naturalSize) return;
-                        const next = Math.max(MIN_SCALE, scale / 1.1);
-                        const prev = scale;
-                        const cx = FRAME_W / 2; const cy = FRAME_H / 2;
-                        const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
-                        const newPanX = cx - ux * next;
-                        const newPanY = cy - uy * next;
-                        
-                        setPan({ x: newPanX, y: newPanY });
-                        setScale(next);
-                      }}>-</button>
-                      <button
-                        className="btn"
-                        onClick={() => {
+                        }}>-</button>
+                        <input
+                          type="range"
+                          min={MIN_SCALE}
+                          max={MAX_SCALE}
+                          step={0.01}
+                          value={scale}
+                          onChange={(e) => {
+                            const next = parseFloat(e.target.value);
+                            if (!naturalSize) { setScale(next); return; }
+                            const prev = scale;
+                            const cx = FRAME_W / 2;
+                            const cy = FRAME_H / 2;
+                            const ux = (cx - pan.x) / prev;
+                            const uy = (cy - pan.y) / prev;
+                            const newPanX = cx - ux * next;
+                            const newPanY = cy - uy * next;
+                            setPan({ x: newPanX, y: newPanY });
+                            setScale(next);
+                          }}
+                          style={{ width: 120 }}
+                        />
+                        <button className="btn" style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => {
                           if (!naturalSize) return;
-                          const coverScale = Math.max(FRAME_W / naturalSize.w, FRAME_H / naturalSize.h);
-                          setScale(coverScale);
-                          const newPanX = (FRAME_W - naturalSize.w * coverScale) / 2;
-                          const newPanY = (FRAME_H - naturalSize.h * coverScale) / 2;
-                          
+                          const next = Math.min(MAX_SCALE, scale * 1.1);
+                          const prev = scale;
+                          const cx = FRAME_W / 2; const cy = FRAME_H / 2;
+                          const ux = (cx - pan.x) / prev; const uy = (cy - pan.y) / prev;
+                          const newPanX = cx - ux * next;
+                          const newPanY = cy - uy * next;
                           setPan({ x: newPanX, y: newPanY });
-                        }}
-                        style={{ padding: '8px 12px' }}
-                      >
-                        위치/배율 초기화
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                  <button className="btn" onClick={exportPng} style={{ padding: '10px 16px' }}>
-                    1125×2436 PNG 내보내기
-                  </button>
-                  <button className="btn" onClick={resetAll} style={{ padding: '10px 16px' }}>
-                    전체 초기화
-                  </button>
+                          setScale(next);
+                        }}>+</button>
+                        <button
+                          className="btn"
+                          onClick={() => {
+                            if (!naturalSize) return;
+                            const coverScale = Math.max(FRAME_W / naturalSize.w, FRAME_H / naturalSize.h);
+                            setScale(coverScale);
+                            const newPanX = (FRAME_W - naturalSize.w * coverScale) / 2;
+                            const newPanY = (FRAME_H - naturalSize.h * coverScale) / 2;
+                            setPan({ x: newPanX, y: newPanY });
+                          }}
+                          style={{ padding: '6px 12px', fontSize: 12, marginLeft: 4 }}
+                        >
+                          초기화
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 두 번째 줄: 그라데이션 설정 (자동/수동 섹션) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={gradientEnabled} onChange={(e) => setGradientEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
+                      <span style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>상단 그라데이션</span>
+                    </label>
+                    {gradientEnabled && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                        {/* 자동 섹션 */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', paddingLeft: 8 }}>자동</span>
+                          <button
+                            className="btn"
+                            onClick={() => setGradientMode('auto')}
+                            style={{ padding: '6px 12px', background: gradientMode === 'auto' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'auto' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                          >Auto</button>
+                        </div>
+                        {/* 수동 섹션 */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: '#64748b', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', paddingLeft: 8 }}>수동</span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button 
+                              className="btn" 
+                              onClick={() => setGradientMode('black')} 
+                              style={{ padding: '6px 12px', background: gradientMode === 'black' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'black' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                            >Black</button>
+                            <button 
+                              className="btn" 
+                              onClick={() => setGradientMode('white')} 
+                              style={{ padding: '6px 12px', background: gradientMode === 'white' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'white' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                            >White</button>
+                            <button 
+                              className="btn" 
+                              onClick={() => setGradientMode('custom')} 
+                              style={{ padding: '6px 12px', background: gradientMode === 'custom' ? '#3b82f6' : '#e5e7eb', color: gradientMode === 'custom' ? '#fff' : '#111', borderRadius: 6, fontSize: 13, fontWeight: 500 }}
+                            >Custom</button>
+                          </div>
+                        </div>
+                        {/* 커스텀 모드 옵션 */}
+                        {gradientMode === 'custom' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', paddingTop: 8 }}>
+                            {/* 선택 방식 및 선택된 색상 */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 20px', background: '#ffffff', borderRadius: 6, border: '1px solid #e2e8f0', alignItems: 'flex-start' }}>
+                              {/* 선택 방식 버튼 */}
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                                <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 100, textAlign: 'left' }}>컬러 선택 방식</span>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button
+                                    onClick={() => setEyedropperMode(true)}
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
+                                      color: eyedropperMode ? '#fff' : '#111', 
+                                      borderRadius: 6, 
+                                      fontSize: 13, 
+                                      fontWeight: 500,
+                                      border: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    스포이드 선택
+                                  </button>
+                                  <button
+                                    onClick={() => setEyedropperMode(false)}
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      background: !eyedropperMode ? '#3b82f6' : '#e5e7eb', 
+                                      color: !eyedropperMode ? '#fff' : '#111', 
+                                      borderRadius: 6, 
+                                      fontSize: 13, 
+                                      fontWeight: 500,
+                                      border: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    직접 선택
+                                  </button>
+                                </div>
+                              </div>
+                              {/* 스포이드 on/off 토글 */}
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                                <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 100, textAlign: 'left' }}>스포이드</span>
+                                <button
+                                  onClick={() => setEyedropperMode(!eyedropperMode)}
+                                  style={{ 
+                                    padding: '6px 12px', 
+                                    background: eyedropperMode ? '#3b82f6' : '#e5e7eb', 
+                                    color: eyedropperMode ? '#fff' : '#111', 
+                                    borderRadius: 6, 
+                                    fontSize: 13, 
+                                    fontWeight: 500,
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {eyedropperMode ? 'ON' : 'OFF'}
+                                </button>
+                                {eyedropperMode && (
+                                  <span style={{ color: '#ef4444', fontSize: 11 }}>
+                                    사진 위치 수정이 불가
+                                  </span>
+                                )}
+                              </div>
+                              {/* 직접 선택 UI */}
+                              {!eyedropperMode && (
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                                  <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 100, textAlign: 'left' }}>선택된 색상</span>
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <input
+                                      type="color"
+                                      value={(pickedColor.startsWith('#') ? pickedColor : '#000000')}
+                                      onChange={(e) => setPickedColor(e.target.value)}
+                                      title="그라데이션 색상 직접 선택"
+                                      style={{ width: 40, height: 32, padding: 0, border: '2px solid #cbd5e1', borderRadius: 6, cursor: 'pointer' }}
+                                    />
+                                    <span style={{ color: '#64748b', fontSize: 11 }}>색상 선택기를 클릭하여 직접 선택</span>
+                                  </div>
+                                </div>
+                              )}
+                              {/* 스포이드 선택 UI */}
+                              {eyedropperMode && (
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+                                  <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 100, textAlign: 'left' }}>선택된 색상</span>
+                                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    {pickedColor !== 'rgba(0,0,0,0)' ? (
+                                      <>
+                                        <div
+                                          style={{ 
+                                            width: 32, 
+                                            height: 32, 
+                                            borderRadius: 6, 
+                                            border: '2px solid #cbd5e1', 
+                                            background: pickedColor,
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                          }}
+                                          title="스포이드로 선택한 색상"
+                                        />
+                                        <span style={{ color: '#64748b', fontSize: 11 }}>이미지에서 스포이드로 선택한 색상</span>
+                                      </>
+                                    ) : (
+                                      <span style={{ color: '#94a3b8', fontSize: 11 }}>이미지에서 색상을 클릭하여 선택하세요</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', background: '#ffffff', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                              <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 50 }}>투명도</span>
+                              <input 
+                                type="range" 
+                                min={0} 
+                                max={1} 
+                                step={0.05} 
+                                value={gradientAlpha} 
+                                onChange={(e) => setGradientAlpha(parseFloat(e.target.value))}
+                                style={{ width: 120 }}
+                              />
+                              <span style={{ color: '#64748b', fontSize: 12, minWidth: 35 }}>{(gradientAlpha * 100).toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        )}
+                        {/* 블랙/화이트 모드 투명도 */}
+                        {(gradientMode === 'black' || gradientMode === 'white') && (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', background: '#ffffff', borderRadius: 6, border: '1px solid #e2e8f0', width: '100%' }}>
+                            <span style={{ color: '#475569', fontSize: 12, fontWeight: 600, marginRight: 4, minWidth: 50 }}>투명도</span>
+                            <input 
+                              type="range" 
+                              min={0} 
+                              max={1} 
+                              step={0.05} 
+                              value={gradientAlpha} 
+                              onChange={(e) => setGradientAlpha(parseFloat(e.target.value))}
+                              style={{ width: 120 }}
+                            />
+                            <span style={{ color: '#64748b', fontSize: 12, minWidth: 35 }}>{(gradientAlpha * 100).toFixed(0)}%</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+
+                  {/* 네 번째 줄: 가이드 그룹 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        ref={guideCheckboxRef}
+                        checked={showGuides || showTextRecommendation}
+                        onChange={(e) => {
+                          const newValue = e.target.checked;
+                          if (newValue) {
+                            // 상위를 켜면 하위 둘 다 켜기
+                            setShowGuides(true);
+                            setShowTextRecommendation(true);
+                          } else {
+                            // 상위를 끄면 하위 둘 다 끄기
+                            setShowGuides(false);
+                            setShowTextRecommendation(false);
+                          }
+                        }} 
+                        style={{ cursor: 'pointer' }} 
+                      />
+                      <span style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>가이드</span>
+                    </label>
+                    {(showGuides || showTextRecommendation) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 28 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={showGuides} 
+                            onChange={(e) => setShowGuides(e.target.checked)} 
+                            style={{ cursor: 'pointer' }} 
+                          />
+                          <span style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>가이드 표시</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={showTextRecommendation} 
+                            onChange={(e) => setShowTextRecommendation(e.target.checked)} 
+                            style={{ cursor: 'pointer' }} 
+                          />
+                          <span style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>텍스트 컬러 추천</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  {/* 내보내기 버튼 */}
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
+                    <button className="btn" onClick={exportPng} style={{ padding: '10px 16px' }}>
+                      1125×2436 PNG 내보내기
+                    </button>
+                    <button className="btn" onClick={resetAll} style={{ padding: '10px 16px' }}>
+                      전체 초기화
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
