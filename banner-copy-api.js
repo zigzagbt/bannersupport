@@ -8,11 +8,19 @@ const app = express();
 const upload = multer();
 const port = process.env.PORT || 4000;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 app.use(cors());
 
 app.post('/api/generate-copy', upload.single('image'), async (req, res) => {
+  if (!openai) {
+    return res.status(500).json({ 
+      error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY in your .env file.' 
+    });
+  }
+
   const copyType = req.body.copyType;
   // 예시 스타일 분석 (실제로는 이미지에서 추출 예정)
   const exampleStyle = "여름 도트 원피스, 데님, 자연광, 레트로 무드";

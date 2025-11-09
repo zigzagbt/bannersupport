@@ -559,17 +559,6 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
             {imageUrl && naturalSize ? (
               <div style={{ display: 'flex', flexDirection: 'row', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  {/* 이미지 교체 안내 */}
-                  <div style={{ 
-                    padding: '6px 12px', 
-                    background: '#f1f5f9', 
-                    borderRadius: 6, 
-                    fontSize: 12, 
-                    color: '#64748b',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    📁 이미지를 끌어다 놓으면 교체됩니다
-                  </div>
                   <div
                     ref={frameRef}
                     style={{
@@ -771,6 +760,15 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                   )}
                   {/* 문구 고정 영역 (예시) */}
                   {/* 삭제 요청: 하단 반투명 박스 제거 */}
+                </div>
+                {/* 이미지 교체 안내 - 이미지 하단 */}
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: 8 }}>
+                  <span style={{ 
+                    fontSize: 12, 
+                    color: '#64748b'
+                  }}>
+                    📁 이미지를 끌어다 놓으면 교체됩니다
+                  </span>
                 </div>
                 </div>
                 {/* 컨트롤 영역 - 그룹화된 레이아웃 */}
@@ -1087,12 +1085,31 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
                     )}
                   </div>
                   {/* 내보내기 버튼 */}
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
-                    <button className="btn" onClick={exportPng} style={{ padding: '10px 16px' }}>
-                      1125×2436 PNG 내보내기
-                    </button>
-                    <button className="btn" onClick={resetAll} style={{ padding: '10px 16px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 8 }}>
+                    <button className="btn" onClick={resetAll} style={{ 
+                      padding: '14px 24px',
+                      background: '#f1f5f9',
+                      color: '#64748b',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      fontWeight: 500,
+                      fontSize: '16px',
+                      cursor: 'pointer'
+                    }}>
                       전체 초기화
+                    </button>
+                    <button className="btn" onClick={exportPng} style={{ 
+                      padding: '14px 24px',
+                      background: '#22c55e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
+                    }}>
+                      이미지 내보내기
                     </button>
                   </div>
                 </div>
