@@ -40,8 +40,14 @@ function App() {
   const [selectedBackgroundColor, setSelectedBackgroundColor] = useState('#f9f6f1');
   const [palette, setPalette] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [adminModeKey, setAdminModeKey] = useState(0); // 관리자 모드 변경 시 리렌더링용
   
   const goHome = () => setCurrentMenu('main');
+  
+  // 관리자 모드 변경 핸들러
+  const handleAdminModeChange = () => {
+    setAdminModeKey(prev => prev + 1); // MainMenu 리렌더링 유도
+  };
 
   // Determine onBack for FooterNav
   let onBack: (() => void) | undefined = undefined;
@@ -66,6 +72,12 @@ function App() {
       onBack = undefined;
   }
 
+  // 접근 권한 체크
+  const isAuthorized = () => {
+    return localStorage.getItem('isAuthorized') === 'true';
+    // 로컬에서도 비밀번호 요청하도록 localhost 체크 제거
+  };
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 1500);
@@ -76,6 +88,13 @@ function App() {
       showToast('준비중이에요');
       return;
     }
+    
+    // 운영자 전용 메뉴 체크
+    if ((menu === 'main-banner-helper' || menu === 'usage-stats') && !isAuthorized()) {
+      showToast('이 메뉴는 운영자만 접근할 수 있습니다.');
+      return;
+    }
+    
     setCurrentMenu(menu);
   };
 
@@ -122,8 +141,36 @@ function App() {
       case 'splash-helper':
         return <SplashHelper onHome={goHome} onBack={goHome} />;
       case 'main-banner-helper':
+        if (!isAuthorized()) {
+          return (
+            <div className="container">
+              <div className="card text-center mb-8">
+                <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
+                  접근 권한이 없습니다
+                </h2>
+                <p style={{ color: '#64748b', fontSize: '1rem' }}>
+                  이 페이지는 운영자만 접근할 수 있습니다.
+                </p>
+              </div>
+            </div>
+          );
+        }
         return <MainBannerHelper onHome={goHome} onBack={goHome} />;
       case 'usage-stats':
+        if (!isAuthorized()) {
+          return (
+            <div className="container">
+              <div className="card text-center mb-8">
+                <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
+                  접근 권한이 없습니다
+                </h2>
+                <p style={{ color: '#64748b', fontSize: '1rem' }}>
+                  이 페이지는 운영자만 접근할 수 있습니다.
+                </p>
+              </div>
+            </div>
+          );
+        }
         return <UsageStats onHome={goHome} onBack={goHome} />;
       case 'backlog':
         return <BacklogMenu onHome={goHome} onBack={goHome} onMenuSelect={handleMenuSelect} />;
@@ -157,7 +204,7 @@ function App() {
         </div>
       )}
       {/* <Chatbot onNavigate={setCurrentMenu} /> */}
-      <FooterNav onHome={goHome} onBack={onBack} />
+      <FooterNav onHome={goHome} onBack={onBack} onAdminModeChange={handleAdminModeChange} />
     </div>
   );
 }

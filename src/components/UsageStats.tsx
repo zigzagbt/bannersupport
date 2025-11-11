@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import FooterNav from './FooterNav';
 import { getAllStats, resetStats, ToolType, getAverageSessionTime, getAverageGradientOpacity, getMostUsedGradientOpacity } from '../utils/usageStats';
 
@@ -35,6 +35,29 @@ const UsageStats: React.FC<UsageStatsProps> = ({ onHome, onBack }) => {
       minute: '2-digit'
     });
   };
+
+  // 접근 권한 체크
+  const isAuthorized = () => {
+    return localStorage.getItem('isAuthorized') === 'true';
+    // 로컬에서도 비밀번호 요청하도록 localhost 체크 제거
+  };
+
+  // 권한이 없으면 접근 거부 메시지 표시
+  if (!isAuthorized()) {
+    return (
+      <div className="container">
+        <div className="card text-center mb-8">
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
+            접근 권한이 없습니다
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '1rem' }}>
+            이 페이지는 운영자만 접근할 수 있습니다.
+          </p>
+        </div>
+        <FooterNav onHome={onHome} onBack={onBack} />
+      </div>
+    );
+  }
 
   return (
     <div className="container">
