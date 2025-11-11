@@ -13,6 +13,9 @@ import SearchBannerGenerator from './components/SearchBannerGenerator';
 import SearchBannerGeneratorNoImage from './components/SearchBannerGeneratorNoImage';
 import BannerColorChecker from './components/BannerColorChecker';
 import SplashHelper from './components/SplashHelper';
+import MainBannerHelper from './components/MainBannerHelper';
+import BacklogMenu from './components/BacklogMenu';
+import UsageStats from './components/UsageStats';
 import FooterNav from './components/FooterNav';
 
 export type MenuItem = 
@@ -27,7 +30,10 @@ export type MenuItem =
   | 'search-banner'
   | 'banner-color-checker'
   | 'search-banner-no-image'
-  | 'splash-helper';
+  | 'splash-helper'
+  | 'main-banner-helper'
+  | 'usage-stats'
+  | 'backlog';
 
 function App() {
   const [currentMenu, setCurrentMenu] = useState<MenuItem>('main');
@@ -47,6 +53,10 @@ function App() {
     case 'search-banner':
     case 'search-banner-no-image':
     case 'banner-color-checker':
+    case 'splash-helper':
+    case 'main-banner-helper':
+    case 'usage-stats':
+    case 'backlog':
       onBack = goHome;
       break;
     case 'text-color':
@@ -111,6 +121,12 @@ function App() {
         return <BannerColorChecker onHome={goHome} onBack={goHome} />;
       case 'splash-helper':
         return <SplashHelper onHome={goHome} onBack={goHome} />;
+      case 'main-banner-helper':
+        return <MainBannerHelper onHome={goHome} onBack={goHome} />;
+      case 'usage-stats':
+        return <UsageStats onHome={goHome} onBack={goHome} />;
+      case 'backlog':
+        return <BacklogMenu onHome={goHome} onBack={goHome} onMenuSelect={handleMenuSelect} />;
       default:
         return <MainMenu onMenuSelect={handleMenuSelect} />;
     }
@@ -140,7 +156,7 @@ function App() {
           {toast}
         </div>
       )}
-      <Chatbot onNavigate={setCurrentMenu} />
+      {/* <Chatbot onNavigate={setCurrentMenu} /> */}
       <FooterNav onHome={goHome} onBack={onBack} />
     </div>
   );

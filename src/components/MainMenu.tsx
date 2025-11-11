@@ -6,6 +6,17 @@ interface MainMenuProps {
 }
 
 const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
+  // 접근 권한 체크 - 나만 접근 가능
+  const isAuthorized = () => {
+    const authorizedUser = process.env.REACT_APP_AUTHORIZED_USER || 'admin';
+    const currentUser = localStorage.getItem('user') || 'guest';
+    
+    return currentUser === authorizedUser || 
+           localStorage.getItem('isAuthorized') === 'true' ||
+           window.location.hostname === 'localhost' ||
+           window.location.hostname.includes('127.0.0.1');
+  };
+
   const menuItems = [
     {
       id: 'color' as MenuItem,
@@ -25,49 +36,43 @@ const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
     //   description: '배너 이미지에 어울리는 감각적인 문구를 추천해드려요',
     //   icon: '🖼️'
     // },
-    {
-      id: 'banner-image-phrase-v2' as MenuItem,
-      title: '배너 이미지 문구 추천',
-      description: '지그재그 스타일의 문구를 추천해드려요',
-      icon: '✨'
-    },
+    // 3번은 백로그로 이동
     {
       id: 'png' as MenuItem,
       title: 'PNG 저장 방법 보기',
       description: '포토샵에서 투명 배경 PNG로 저장하는 방법',
       icon: '📦'
     },
-    {
-      id: 'template' as MenuItem,
-      title: '배너 PSD 템플릿 다운로드 (작업중)',
-      description: 'ZIGZAG 배너 제작용 PSD 템플릿을 다운로드하세요',
-      icon: '🎁'
-    },
-    {
-      id: 'full-guide' as MenuItem,
-      title: '전체 가이드 한눈에 보기 (작업중)',
-      description: '배너 제작에 필요한 모든 정보를 한 번에 확인하세요',
-      icon: '📚'
-    },
-    {
-      id: 'search-banner' as MenuItem,
-      title: '검색 띠배너 생성',
-      description: '이미지 업로드로 자동 배경색 추출 + 텍스트 입력 + JPG 다운로드',
-      icon: '🔍'
-    },
-    {
-      id: 'banner-color-checker' as MenuItem,
-      title: '배너 컬러 확인',
-      description: '배너 이미지 색상 분석 + 텍스트 가독성 테스트 + 접근성 검사',
-      icon: '🎨'
-    },
+    // 4번은 백로그로 이동
     {
       id: 'splash-helper' as MenuItem,
       title: '스플래시 도우미',
       description: '이미지 업로드 후 Safe Zone 적합 여부 확인',
       icon: '🖼️'
+    },
+    {
+      id: 'main-banner-helper' as MenuItem,
+      title: '메인배너 도우미',
+      description: '직잭팟 전용 메인배너 이미지',
+      icon: '🎯'
+    },
+    {
+      id: 'usage-stats' as MenuItem,
+      title: '사용 통계',
+      description: '스플래시와 메인배너 도우미 사용 현황',
+      icon: '📊'
     }
   ];
+
+  // 백로그 메뉴 추가 (권한이 있는 경우만)
+  if (isAuthorized()) {
+    menuItems.push({
+      id: 'backlog' as MenuItem,
+      title: '관리자 전용 (백로그)',
+      description: '작업 중인 기능들을 확인하세요',
+      icon: '📋'
+    });
+  }
 
   return (
     <div>
@@ -78,15 +83,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onMenuSelect }) => {
         <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '15px' }}>
           각 항목을 클릭하면 자세한 가이드를 확인할 수 있어요
         </p>
-        <div className="tip" style={{ 
-          background: '#dbeafe',
-          color: '#1e40af',
-          border: '1px solid #bfdbfe',
-          margin: '0'
-        }}>
-          <strong>💬 챗봇 도우미가 준비되어 있어요!</strong><br/>
-          오른쪽 하단의 💬 버튼을 클릭하면 궁금한 점을 바로 물어볼 수 있습니다
-        </div>
       </div>
 
       <div className="grid">

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import FooterNav from './FooterNav';
+import { incrementUsage, incrementExport, getStats, startSession, endSession, recordGradientOpacity } from '../utils/usageStats';
 
 interface SplashHelperProps {
   onHome: () => void;
@@ -58,10 +59,34 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
   const [showTextRecommendation, setShowTextRecommendation] = useState<boolean>(true);
   const [recommendedOverlay, setRecommendedOverlay] = useState<'black' | 'white'>('black');
   // Contrast state
-  
+  const [stats, setStats] = useState(getStats('splash'));
+  const sessionIdRef = useRef<string | null>(null);
 
   // Human readable label for recommended text color
   const recommendedTextLabel = recommendedTextColor === '#000000' ? '블랙' : '화이트';
+
+  // 세션 추적: 컴포넌트 마운트 시 세션 시작
+  useEffect(() => {
+    sessionIdRef.current = startSession('splash');
+    return () => {
+      // 언마운트 시 세션 종료
+      if (sessionIdRef.current) {
+        endSession(sessionIdRef.current);
+      }
+    };
+  }, []);
+
+  // 통계 업데이트
+  useEffect(() => {
+    setStats(getStats('splash'));
+  }, [imageUrl]); // 이미지가 변경될 때마다 통계 업데이트
+
+  // 그라데이션 투명도 변경 시 기록
+  useEffect(() => {
+    if (gradientAlpha !== undefined && gradientAlpha > 0) {
+      recordGradientOpacity(gradientAlpha);
+    }
+  }, [gradientAlpha]);
 
   const toRgbaWithAlpha = (input: string, alpha: number) => {
     if (input.startsWith('rgba')) {
@@ -354,6 +379,9 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       setTimeout(() => {
         resetForNewImage();
         setImageUrl(newImageUrl);
+        // 사용 통계 증가
+        incrementUsage('splash');
+        setStats(getStats('splash')); // 통계 즉시 업데이트
       }, 0);
     };
     reader.readAsDataURL(file);
@@ -380,6 +408,9 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
       setTimeout(() => {
         resetForNewImage();
         setImageUrl(newImageUrl);
+        // 사용 통계 증가
+        incrementUsage('splash');
+        setStats(getStats('splash')); // 통계 즉시 업데이트
       }, 0);
     };
     reader.readAsDataURL(file);
@@ -522,6 +553,10 @@ const SplashHelper: React.FC<SplashHelperProps> = ({ onHome, onBack }) => {
     link.download = 'splash-1125x2436.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
+    
+    // Export 통계 증가
+    incrementExport('splash');
+    setStats(getStats('splash')); // 통계 즉시 업데이트
   };
 
   // 기기 비율 가정: 1080x1920 기준. Safe Zone은 예시 비율.
