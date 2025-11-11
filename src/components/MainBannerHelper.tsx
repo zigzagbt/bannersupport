@@ -330,29 +330,6 @@ const MainBannerHelper: React.FC<MainBannerHelperProps> = ({ onHome, onBack }) =
     setStats(getStats('main-banner')); // 통계 즉시 업데이트
   };
 
-  // 접근 권한 체크
-  const isAuthorized = () => {
-    return localStorage.getItem('isAuthorized') === 'true';
-    // 로컬에서도 비밀번호 요청하도록 localhost 체크 제거
-  };
-
-  // 권한이 없으면 접근 거부 메시지 표시
-  if (!isAuthorized()) {
-    return (
-      <div className="container">
-        <div className="card text-center mb-8">
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
-            접근 권한이 없습니다
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '1rem' }}>
-            이 페이지는 운영자만 접근할 수 있습니다.
-          </p>
-        </div>
-        <FooterNav onHome={onHome} onBack={onBack} />
-      </div>
-    );
-  }
-
   // 기기 비율 가정: 1080x1920 기준. Safe Zone은 예시 비율.
   // 실제 비율과 안전 영역은 이후 사용자가 구체 제원 제공 시 조정 예정.
   return (

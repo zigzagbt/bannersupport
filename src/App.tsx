@@ -89,8 +89,8 @@ function App() {
       return;
     }
     
-    // 운영자 전용 메뉴 체크
-    if ((menu === 'main-banner-helper' || menu === 'usage-stats') && !isAuthorized()) {
+    // 운영자 전용 메뉴 체크 (사용 통계만)
+    if (menu === 'usage-stats' && !isAuthorized()) {
       showToast('이 메뉴는 운영자만 접근할 수 있습니다.');
       return;
     }
@@ -141,20 +141,6 @@ function App() {
       case 'splash-helper':
         return <SplashHelper onHome={goHome} onBack={goHome} />;
       case 'main-banner-helper':
-        if (!isAuthorized()) {
-          return (
-            <div className="container">
-              <div className="card text-center mb-8">
-                <h2 style={{ fontSize: '1.4rem', marginBottom: '12px', color: '#1e293b' }}>
-                  접근 권한이 없습니다
-                </h2>
-                <p style={{ color: '#64748b', fontSize: '1rem' }}>
-                  이 페이지는 운영자만 접근할 수 있습니다.
-                </p>
-              </div>
-            </div>
-          );
-        }
         return <MainBannerHelper onHome={goHome} onBack={goHome} />;
       case 'usage-stats':
         if (!isAuthorized()) {
